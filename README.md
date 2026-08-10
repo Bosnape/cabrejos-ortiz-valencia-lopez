@@ -1,4 +1,4 @@
-# Asistente de Consulta de Derecho Laboral Individual (SI4006)
+# Asistente de Consulta de Derecho Laboral Individual
 
 Asistente de apoyo para abogados junior colombianos: verifica qué norma/artículo aplica a
 una consulta de derecho laboral individual. Informa y verifica — nunca recomienda acciones
