@@ -1,0 +1,11 @@
+venv/
+__pycache__/
+.ipynb_checkpoints/
+.env
+
+# se regeneran corriendo ds_diccionario_articulos.ipynb, no hace falta versionarlos
+data/articulos_a_buscar.csv
+data/diccionario_faltantes.csv
+
+*.pdf
+!data/SL2600-2025.pdf

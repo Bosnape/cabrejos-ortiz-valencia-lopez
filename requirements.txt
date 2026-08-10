@@ -1,0 +1,10 @@
+pandas
+requests
+beautifulsoup4
+pdfplumber
+anthropic
+scikit-learn
+python-dotenv
+torch
+transformers
+pypdf
