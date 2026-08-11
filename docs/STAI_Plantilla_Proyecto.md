@@ -11,7 +11,7 @@
   - Martin Valencia · mvalenciv1@eafit.edu.co
   - Samuel Lopez · slopezg16@eafit.edu.co
 - **Integrante de contacto con el profesor:** Pablo Cabrejos
-- **Cómo van a coordinar el código** (GitHub / GitLab · enlace al repo): GitHub · 
+- **Cómo van a coordinar el código** (GitHub / GitLab · enlace al repo): GitHub · https://github.com/Bosnape/cabrejos-ortiz-valencia-lopez
 - **Día y hora semanal de reunión fuera de clase:** Viernes a las 3:00 pm
 
 ---
@@ -79,9 +79,9 @@ Quedan fuera el derecho laboral colectivo (sindicatos, fuero, huelga) y la segur
 
 ## 5 · Métrica de éxito
 
-- **¿Qué métrica principal medirá si el sistema es útil?** Accuracy@1 y/o MRR (Mean Reciprocal Rank) del cross-encoder sobre el golden set — ¿el artículo con mayor score después del reordenamiento es el correcto? Meta ≥ 0,85 en acierto de norma citada.
+- **¿Qué métrica principal medirá si el sistema es útil?** Recall@k y Precision@k del cross-encoder sobre el golden set (k=3 o k=5, por definir junto con Miguel/Samuel) — de los k artículos con mayor score después del reordenamiento, ¿qué fracción de los realmente aplicables se recuperó (recall) y qué fracción de lo devuelto es correcto (precision)? Meta ≥ 0,85 en Recall@k.
 
-- **¿Por qué esa métrica y no otra?** Mide exactamente lo que el usuario necesita (que la primera cita que le den sea la correcta), no solo si el artículo correcto aparece en algún lugar de una lista larga.
+- **¿Por qué esa métrica y no otra?** El dataset es multi-etiqueta — varias consultas tienen más de un artículo correcto a la vez (285 positivos sobre 138 sentencias), y el sistema está pensado para devolver varios candidatos, no uno solo. Accuracy@1/MRR asumen una única respuesta correcta y solo evalúan si quedó primera; penalizan mal un caso donde el modelo recupera varios artículos válidos entre los primeros k pero no el que se marcó como "el" target. Recall@k/Precision@k mide directamente si el conjunto de artículos que se le muestra al abogado es el correcto.
 
 - **¿Cuál sería un baseline razonable con el que compararse?** El mismo modelo sin fine-tuning (zero-shot) haciendo el mismo reordenamiento, o el retrieval por similitud semántica solo, sin el paso de reordenamiento. El fine-tuning solo se justifica si supera claramente ese baseline.
 
