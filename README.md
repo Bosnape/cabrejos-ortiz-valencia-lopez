@@ -26,13 +26,6 @@ sobre un caso concreto.
 - `docs/` — definición del proyecto (`STAI_Plantilla_Proyecto.md`), descripción del dataset,
   reporte final
 
-## Split del equipo (M1)
-
-- **Pablo** — dataset (`notebooks/dataset/`)
-- **Miguel** — training LoRA (`notebooks/finetuning/`)
-- **Samuel** — baseline + evaluación (dentro de `notebooks/finetuning/`)
-- **Martin** — docs + reporte (`docs/`)
-
 ## Setup
 
 ```bash
