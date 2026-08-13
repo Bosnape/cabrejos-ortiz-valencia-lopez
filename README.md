@@ -10,7 +10,7 @@ Asistente de apoyo para abogados junior colombianos: dado un texto de consulta, 
 | `notebooks/decisiones_base_encoder.ipynb` | Justificación de familia/modelo base (tokenización de dominio) |
 | `notebooks/dataset/` | Recolección y pre-procesamiento del corpus: `ds_parte1_redal`, `ds_parte2_corte_const`, `ds_parte3_research_list`, `ds_parte4_sl_casacion`, `ds_diccionario_articulos` |
 | `data/` | Dataset de entrenamiento e insumos: `dataset_cross_encoder.csv`, `diccionario_articulos.csv`, `fuentes_normas.csv`, `descartados.csv`, `candidatas_research.csv` |
-| `docs/` | Definición del proyecto y descripción de la asignación |
+| `docs/` | Definición del proyecto (`STAI_Plantilla_Proyecto.md`) |
 
 ## Reporte M1 — Fine-tuning con LoRA (BETO)
 
