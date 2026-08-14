@@ -16,66 +16,49 @@ Asistente de apoyo para abogados junior colombianos: dado un texto de consulta, 
 
 ### Tarea y métricas
 
-**Tarea.** Clasificación binaria de pares (cross-encoder): `[CLS] consulta [SEP] norma + artículo [SEP]` → la cabeza clasificadora emite un par de **logits** (números reales sin normalizar, uno por clase). Aplicando softmax sobre ellos se obtiene `P(relacionado)`, la **score de relevancia** que ordena los candidatos en el producto. No es clasificación de un solo texto ni generación: procesa los dos textos juntos y produce un solo número por par.
+**Tarea.** Clasificación binaria de pares (cross-encoder): `[CLS] consulta [SEP] norma + artículo [SEP]` → softmax sobre los logits da `P(relacionado)`, la **score de relevancia** que ordena los candidatos en el producto.
 
-**Métrica principal.** Para la clasificación binaria se usa **F1**, no accuracy: las clases están desbalanceadas en el espacio de recuperación real (muchos más candidatos no relevantes que relevantes) y el falso negativo de una norma aplicable es el error más costoso. Como métrica de producto (lo que ve el abogado) se usa **Recall@k y Precision@k** con k=3: para cada consulta se ordenan los artículos candidatos por score y se mira el top-3 — ¿qué fracción de los artículos realmente aplicables quedó en el top-k (recall) y qué fracción del top-k es correcta (precision)? Meta del proyecto: **Recall@3 ≥ 0.85**.
+**Métricas.** Para la clasificación binaria se usa **F1** (no accuracy: las clases están desbalanceadas y el falso negativo de una norma aplicable es el error más costoso). Como métrica de producto, **Recall@3 y Precision@3**: de los 3 artículos con mayor score por consulta, ¿qué fracción de los realmente aplicables se recuperó y qué fracción es correcta? Meta: **Recall@3 ≥ 0.85**.
 
-### Modelo base y familia: por qué BETO y no otro
+### Modelo base: por qué BETO
 
-Usamos `dccuchile/bert-base-spanish-wwm-cased` (**BETO**), un encoder BERT monolingüe en español con *Whole Word Masking*. Tres razones, en orden de peso:
+`dccuchile/bert-base-spanish-wwm-cased` (BETO), BERT monolingüe en español con *Whole Word Masking*:
 
-1. **Conexión pre-entrenamiento ↔ tarea.** BETO fue pre-entrenado con **MLM (masked language modeling)**: predice palabras enmascaradas usando el contexto. Esto entrena representaciones sensibles a contexto y a léxico jurídico español. Nuestra tarea discriminativa (decidir si un artículo *responde* una consulta) afina esas representaciones — el objetivo de pre-entrenamiento alimenta directamente la tarea.
-2. **Tokenización de dominio (consejo Lab A).** Comparando fertilidad (tokens por palabra) sobre texto jurídico-laboral español, BETO obtiene **1.35** frente a **1.56** de las alternativas multilingües mBERT/DistilBERT: ~**14% menos tokens** sobre el mismo texto. Un modelo que parte términos clave del dominio ("prestaciones", "cesantías", "indemnización") en muchas subpalabras rinde peor y es más costoso. Se descartó DistilBERT además por su arquitectura de atención (`q_lin`/`v_lin`), incompatible con el patrón LoRA estándar de BETO.
-3. **Tamaño.** ~110M de parámetros, corre holgado en el T4 gratis de Colab con margen para adaptación eficiente.
+1. **Pre-entrenamiento ↔ tarea.** BETO usa MLM (predice palabras enmascaradas por contexto), lo que entrena representaciones sensibles al léxico jurídico español — la base que nuestra tarea discriminativa afina.
+2. **Tokenización de dominio.** Fertilidad 1.35 tokens/palabra sobre texto jurídico-laboral vs. 1.56 de mBERT/DistilBERT (~14% menos tokens). DistilBERT además usa una arquitectura de atención (`q_lin`/`v_lin`) distinta al patrón LoRA estándar de BETO.
+3. **Tamaño.** ~110M de parámetros, corre holgado en el T4 gratis de Colab.
 
 Justificación completa en `notebooks/decisiones_base_encoder.ipynb`.
 
-### Baselines (contra qué comparamos)
+### Baselines
 
-La asignación pide dos referencias. **Clase mayoritaria**: predice siempre la clase más frecuente en train (0, NO RELEVANTE: 192/375) sin leer el texto; comprueba cuánto se logra sin el modelo. **BETO sin afinar (zero-shot)**: el mismo encoder del modelo final pero con cabeza binaria recién inicializada y sin entrenamiento en esta tarea. Ambos se evalúan sobre el **mismo `validation`** para aislar el delta que aporta el fine-tuning.
+Dos referencias, evaluadas sobre el mismo `validation`: **clase mayoritaria** (el piso, sin leer texto) y **BETO sin afinar (zero-shot)** — el baseline que recomienda la asignación, porque usa el mismo encoder del modelo final y aísla exactamente el aporte del fine-tuning.
 
 ### LoRA: qué se congela y qué se entrena
 
-En **LoRA (Low-Rank Adaptation)** el peso original W del backbone queda **congelado** (no recibe gradientes) y se inyectan ramas paralelas de bajo rango: `W' = W + (α/r)·B·A`, donde `A` es una matriz aleatoria `d×r`, `B` es una matriz en ceros `r×d` (la rama parte en 0 y solo B se actualiza), `r` el rango y `α` la escala (factor efectivo `α/r = 2`).
+El backbone de BETO queda **congelado**; se inyectan ramas de bajo rango (`W' = W + (α/r)·B·A`) en las capas de atención. Solo se entrenan las ramas LoRA y la cabeza clasificadora nueva (vía `modules_to_save`): **296 450 de 110 148 868 parámetros — 0.27%**. Esto hace que el fine-tuning quepa en una sesión Colab chica, sea estable con solo 538 pares y reduzca el riesgo de overfitting frente al full fine-tuning.
 
-En nuestro modelo: el **99.73% de los parámetros queda congelado** (backbone completo de 12 capas, embedding y capas de atención no objetivo). Se entrenan solo:
+### Hiperparámetros principales
 
-- **294 912 parámetros de LoRA**: 12 capas × 2 módulos (`query`, `value`) × 2 matrices (8×768 + 768×8) = 12 288 por módulo.
-- **1 538 parámetros de la cabeza** (`classifier`, 768×2 + 2 bias), incluida vía `modules_to_save` porque la cabeza nueva no viene pre-entrenada.
+- **`r = 8`.** Corpus pequeño (538 pares): un rango bajo evita que la rama tenga capacidad de memorizar en vez de generalizar.
+- **`lora_alpha = 16`.** Con `α/r = 2` la adaptación entra con fuerza suficiente para mover el modelo sin descarrilar las representaciones pre-entrenadas.
+- **`target_modules = ["query", "value"]`.** Las proyecciones que deciden qué mirar de la consulta y de la norma; adaptar solo ahí basta y evita cuadruplicar los entrenables tocando MLP o la cabeza.
+- **`warmup_steps`** (calculado, ~10% de los pasos totales, no un número fijo): se deriva de `len(train)` para no quedar desactualizado si el dataset crece, y evita el warning de `warmup_ratio` deprecado en transformers 5.x.
 
-**Total entrenable: 296 450 / 110 148 868 = 0.27 %.** Por eso el fine-tuning cabe en una sesión Colab pequeña, es estable con un corpus de 538 pares y reduce el riesgo de overfitting frente al full fine-tuning (110M parámetros libres sobre pocos datos habrían memorizado el corpus).
-
-### Hiperparámetros (justificados)
-
-La justificación de cada valor parte de una premisa: **tenemos un corpus chico (538 pares) y solo 0.27% de parámetros entrenables**, así que la configuración debe ser conservadora en capacidad, agresiva en regularización y barata en memoria.
-
-- **`r = 8`.** Nuestro corpus es pequeño, así que el subespacio adaptativo no necesita ser grande: r=8 alcanza para que LoRA aprenda los patrones de relación consulta→norma sin darle a la rama la capacidad de memorizar los 538 pares. Un r mayor (32/64) solo habría añadido parámetros innecesarios sobre pocos datos, con más riesgo de overfitting y sin ganancia medible.
-- **`lora_alpha = 16`.** Escala cuánto "pesa" la rama LoRA respecto al backbone congelado: con `α/r = 2` la actualización entra con fuerza suficiente para mover el comportamiento del modelo con solo 8 dimensiones, pero sin que un solo paso de descenso descarrile las representaciones pre-entrenadas. Si hubiéramos usado α=8 (factor 1), la adaptación habría sido demasiado tímida para el salto sobre el baseline.
-- **`lora_dropout = 0.1`.** Con 538 pares el modelo tiende a sobreajustar; dropout en las ramas LoRA corta aleatoriamente conexiones de la adaptación en cada paso, forzando que la señal de relación se distribuya en varias dimensiones en lugar de depender de una. 0.1 es un valor estándar que regulariza sin llegar a dificultar el aprendizaje como lo haría 0.3-0.5.
-- **`target_modules = ["query", "value"]`.** Las proyecciones query/value de la atención son las que deciden *qué mirar* de la consulta y de la norma; adaptar solo ahí es suficiente porque la tarea es entender qué partes de ambos textos se relacionan. Además es el patrón de menor riesgo de PEFT: tocar MLP o la cabeza de salida completa habría cuadruplicado los entrenables sin evidencia de beneficio en clasificación de pares.
-- **`modules_to_save = ["classifier"]`.** La cabeza binaria se crea desde cero (no viene pre-entrenada): si no se incluyera en `modules_to_save`, sus pesos quedarían congelados en su inicialización aleatoria y el modelo no podría aprender nada. Se entrena aparte del backbone congelado.
-- **`learning_rate = 1e-4`.** Como solo se actualizan 296K parámetros (las ramas A/B y la cabeza, todos "nuevos"), el modelo puede tolerar un paso más grande que el 2e-5 clásico de full fine-tuning, donde un paso grande corrompería los 110M de pesos pre-entrenados. Con lr menor el entrenamiento habría sido demasiado lento para nuestros ~192 pasos totales.
-- **batch efectivo = 16** (8 × grad-accum 2). Con batch 8 el gradiente de cada paso sería muy ruidoso; con 16 se estabiliza la estimación del gradiente sin duplicar la memoria del T4. El grad-accum logra ese batch de 16 con el consumo de memoria de 8.
-- **`warmup_steps = 19`.** ~10% de los ~192 pasos: al inicio las ramas A/B empiezan en valores arbitrarios (A aleatoria, B en ceros) y darles el lr completo desde el paso 1 produciría actualizaciones inestables. El warmup sube la tasa gradualmente mientras la rama se estabiliza.
-- **`weight_decay = 0.01`.** Regulariza los pocos pesos entrenables (las ramas LoRA y la cabeza) para que no crezcan sin límite en un corpus chico; es el valor por defecto recomendado por AdamW y coherente con nuestra estrategia conservadora.
-- **`num_train_epochs = 8`.** Tope superior generoso: dejamos que la combinación con early stopping decida cuándo parar (ver abajo). Con 8 épocas se garantiza que el F1 haya alcanzado su meseta antes de que el stop lo corte (terminó en 6).
-- **`fp16` activo.** El T4 está optimizado para precisión mixta: ~2× más rápido de entrenamiento y la mitad de memoria de activaciones, sin pérdida de precisión observable en nuestras métricas. Sin él, el entrenamiento de 6 épocas habría tomado el doble en el límite del tiempo de Colab.
-- **`max_length = 512` + `truncation = "only_second"`.** BETO tiene un tope duro de 512 tokens y nuestros artículos son largos (texto legal completo). Al truncar solo el segundo segmento, la consulta del abogado nunca se pierde y la norma se recorta al prefijo — aceptable porque los considerandos clave suelen estar al inicio del artículo.
-- **`seed` / `data_seed = 42`.** Fija inicialización de pesos, orden del dataloader y particiones: otra persona al correr el notebook obtiene los mismos resultados. Sin esto, los números de la tabla serían irreproducibles.
-- **`optim = adamw_torch`.** El weight decay desacoplado de AdamW es el estándar de Hugging Face: regulariza los pesos sin interferir con el momento adaptativo de cada parámetro, adecuado para nuestros pocos entrenables.
+El resto de hiperparámetros (`lora_dropout`, `weight_decay`, batch/grad-accum, `num_train_epochs`, `fp16`, semilla) sigue configuración estándar de PEFT/Trainer, documentada como comentarios en el notebook.
 
 ### Early stopping
 
-La Trainer evalúa al final de cada época y guarda el mejor checkpoint por **F1 en validation** (`load_best_model_at_end`, `metric_for_best_model="f1"`). Con `EarlyStoppingCallback(patience=2)`, si F1 no mejora durante 2 épocas consecutivas se detiene el entrenamiento. De las 8 épocas configuradas se entrenaron **6**; el F1 alcanzó su máximo (0.763) en la **época 4** y se estabilizó:
+Mejor checkpoint por **F1 en validation** (`load_best_model_at_end`), con `patience=2`. De 8 épocas configuradas se entrenaron **6**; el F1 alcanzó su máximo (0.763) en la **época 4** y se estabilizó:
 
 | Época | Loss val | Acc | Prec | Recall | F1 |
 |---|---|---|---|---|---|
-| 1 | 0.701 | 0.494 | 0.538 | 0.156 | 0.241 |
-| 2 | 0.648 | 0.621 | 0.875 | 0.311 | 0.459 |
-| 3 | 0.546 | 0.782 | 0.933 | 0.622 | 0.747 |
-| 4 | 0.496 | 0.793 | 0.935 | 0.644 | **0.763** |
-| 5 | 0.447 | 0.793 | 0.935 | 0.644 | 0.763 |
-| 6 | 0.468 | 0.793 | 0.935 | 0.644 | 0.763 |
+| 1 | 0.702 | 0.540 | 0.778 | 0.156 | 0.259 |
+| 2 | 0.644 | 0.678 | 0.905 | 0.422 | 0.576 |
+| 3 | 0.543 | 0.782 | 0.933 | 0.622 | 0.747 |
+| 4 | 0.492 | 0.793 | 0.935 | 0.644 | **0.763** |
+| 5 | 0.452 | 0.793 | 0.935 | 0.644 | 0.763 |
+| 6 | 0.465 | 0.793 | 0.935 | 0.644 | 0.763 |
 
 ### Resultados (validation)
 
@@ -85,56 +68,61 @@ La Trainer evalúa al final de cada época y guarda el mejor checkpoint por **F1
 | BETO zero-shot | 0.483 | 0.000 | 0.000 | 0.000 |
 | **BETO + LoRA** | **0.793** | **0.935** | **0.644** | **0.763** |
 
-La tabla anterior es la **evaluación de clasificación**, fila por fila: por cada par (consulta, artículo) el modelo decide si es relevante o no — es la comparación oficial que pide la rúbrica (baseline vs. afinado sobre el mismo `validation`). Aparte, el **producto** funciona como recuperación: para cada consulta se ordenan los artículos candidatos por score y se devuelven los k mejores. Esa evaluación de **ranking** por sentencia (top-3) es la métrica principal del proyecto y también se calcula sobre `validation`:
+Comparación oficial (fila por fila, mismo `validation`). El producto funciona como recuperación — para cada consulta se ordenan los candidatos y se muestran los top-k — así que la métrica principal es el ranking por sentencia: **Recall@3 0.898** vs. 0.679 de BETO zero-shot; **Precision@3 0.587** vs. 0.381 (clase mayoritaria es N/A: mismo score para todos no define un orden).
 
-Ránking de recuperación por sentencia (validation, k=3): **Recall@3 0.898** vs 0.679 de BETO sin afinar (zero-shot); **Precision@3 0.587** vs 0.381. (La clase mayoritaria figura como N/A en ranking: al dar el mismo score a todos los candidatos no define un orden.) En test, como información adicional del equipo: acc 0.895, prec 0.906, recall 0.853, F1 0.879.
+**Confirmación en `test`** (held-out, nunca visto durante entrenamiento ni selección de checkpoint — no reemplaza la comparación anterior, solo confirma que la mejora se sostiene):
 
-**Lectura honesta.** F1 0.76 en validation refleja la dificultad real: recall 0.64 indica que aún se escapan positivos (normas que el modelo no relaciona). Precision 0.94 confirma que lo que marca como relacionado casi nunca es ruido — el asistente prefiere no afirmar antes que afirmar mal, aceptable para su rol de verificación. El delta frente al baseline (0 → 0.76 F1) es todo aporte del fine-tuning. Meta del proyecto (Recall@3 ≥ 0.85) **cumplida**.
+| Modelo | Acc | Prec | Recall | F1 |
+|---|---|---|---|---|
+| Clase mayoritaria | 0.553 | 0.000 | 0.000 | 0.000 |
+| BETO zero-shot | 0.553 | 0.000 | 0.000 | 0.000 |
+| **BETO + LoRA** | **0.895** | **0.906** | **0.853** | **0.879** |
+
+**Lectura honesta.** F1 0.76: precision 0.94 confirma que lo que el modelo marca como relacionado casi nunca es ruido, pero recall 0.64 muestra que todavía se le escapan normas aplicables — el asistente prefiere no afirmar antes que afirmar mal, razonable para su rol de verificación. El delta frente al baseline (0 → 0.76 F1) es todo aporte del fine-tuning. Meta del proyecto (Recall@3 ≥ 0.85) **cumplida**.
 
 ### Ejemplos cualitativos
 
 ```
-Consulta : "Trabajé para el ISS desde septiembre de 2000 hasta marzo de 2013 como contador
-            público, pero me hicieron firmar contratos de prestación de servicios..."
-Artículo : Ley 100 de 1993, Art. 275 (Instituto de Seguros Sociales)
-Esperado : RELEVANTE   →   Predicho: RELEVANTE (score 0.781)  ✅
+Consulta : "Trabajé 24 años como operario de montacargas y me despidieron después de que
+            un compañero ebrio me agredió verbalmente con insultos racistas... yo
+            reaccioné lanzándole mi casco..."
+Artículo : Ley 50 de 1990, Art. 6 (sustitución de personal por incapacidad/licencia)
+Esperado : RELEVANTE   →   Predicho: RELEVANTE (score 0.795)  ✅
 
 Consulta : "Me despidieron de Helicol después de 9 años trabajando, sin saber que estaba
             embarazada... la EPS me negó la licencia de maternidad..."
 Artículo : CST Art. 239 (protección a la maternidad)
-Esperado : NO RELEVANTE   →   Predicho: RELEVANTE (score 0.630)  ❌ falso positivo
+Esperado : NO RELEVANTE   →   Predicho: RELEVANTE (score 0.665)  ❌ falso positivo
 ```
 
-Selección reproducible sobre validation (verdadero positivo representativo, falso negativo cercano al umbral, negativo difícil correctamente rechazado y falso positivo con mayor score) en la sección 8 del notebook. El score mostrado es la **score de relevancia**, no una confianza calibrada.
+Selección reproducible sobre `validation` (verdadero positivo representativo, falso negativo cercano al umbral, negativo difícil bien rechazado, falso positivo con mayor score) en la sección 8 del notebook.
 
 ## Dataset
 
-El corpus se construye en **dos fases** separadas: la **recolección** (de sentencias a pares pregunta→norma, en `notebooks/dataset/`) y la **adecuación para el modelo** (de pares a texto listo para tokenizar, al inicio del notebook de fine-tuning). Entre ambas hay un **join** con un diccionario de normas.
+Dos fases: **recolección** (sentencias → pares pregunta-norma, en `notebooks/dataset/`) y **adecuación** (pares → texto listo para tokenizar, al inicio del notebook de fine-tuning), unidas por un join contra un diccionario de normas.
 
-### Archivos CSV que componen el dataset
+### Archivos
 
-| Archivo | Rol | Contenido | Filas |
-|---|---|---|---|
-| `data/dataset_cross_encoder.csv` | **Dataset final de pares** (se consume en el entrenamiento) | `consulta`, `articulo` (cita, ej. `CST Art. 127`), `tipo`, `label` (1/0), `sentencia_origen` | 561 (138 sentencias) |
-| `data/diccionario_articulos.csv` | **Texto normativo completo** (se une por llave) | `fuente`, `numero`, `texto_completo`, `n_citas_en_dataset`, `url_fuente` | 143 artículos / 41 normas |
-| `data/fuentes_normas.csv` | **Insumo manual** del diccionario: URL oficial resuelta de cada norma | `fuente`, `url`, `dominio`, `notas` | 41 |
-| `data/descartados.csv` | **Blacklist compartida** de sentencias descartadas | `sentencia`, `razon` | 1362 |
-| `data/candidatas_research.csv` | **Insumo** de la vía de investigación externa | `sentencia`, `tema`, `url` | 130 |
+| Archivo | Contenido | Filas |
+|---|---|---|
+| `data/dataset_cross_encoder.csv` | Dataset final de pares: `consulta`, `articulo`, `tipo`, `label`, `sentencia_origen` | 561 (138 sentencias) |
+| `data/diccionario_articulos.csv` | Texto normativo completo, unido por `(fuente, numero)` | 143 artículos / 41 normas |
+| `data/fuentes_normas.csv` | URL oficial resuelta a mano de cada norma | 41 |
+| `data/descartados.csv` | Blacklist compartida de sentencias descartadas | 1362 |
+| `data/candidatas_research.csv` | Candidatas de la vía de investigación externa | 130 |
 
-### Pipeline de construcción (recolección → pares)
+### Pipeline
 
-El pipeline completo se documenta paso a paso en esta sección y en los notebooks de `notebooks/dataset/`. En resumen:
+1. **Recolección** por 4 vías (`notebooks/dataset/`): cada sentencia pasa un filtro barato (Claude Haiku) antes de la extracción completa (Claude Sonnet), que produce la `consulta` en lenguaje coloquial y los artículos determinantes (`positivo`). Cada positivo suma un negativo fácil (tema distinto) y un negativo difícil (artículo real, cercano, que no aplica). Las 4 vías comparten `descartados.csv`.
+2. **Diccionario de artículos**: texto íntegro de cada norma citada, extraído de portales oficiales vía `fuentes_normas.csv`.
+3. **Join**: la cita se separa en `(fuente, numero)` normalizado y se une al diccionario. El texto no vive duplicado en cada fila del dataset.
+4. **Limpieza**: 23 pares se descartan por no tener texto normativo con el que entrenar — 21 citan una ley/decreto completo sin número de artículo (nada específico que unir) y 2 citan convenciones colectivas privadas entre una empresa y un sindicato, no codificadas en ningún repositorio público → 538 utilizables.
+5. **Split por sentencia** (`GroupShuffleSplit`, seed 42): evita que positivo y negativos de una misma consulta caigan en splits distintos (fuga).
+6. **Tokenización**: 512 tokens, `truncation="only_second"` — la consulta nunca se recorta.
 
-1. **Recolección por 4 vías** (`notebooks/dataset/`): cada sentencia pasa un embudo de filtros antes de gastar llamadas LLM — prefiltro de keywords, **gate de pertinencia barato (Claude Haiku, solo el inicio del texto)** y **extracción completa (Claude Sonnet)** solo para las que pasan. Un LLM lee la sentencia y produce los hechos en lenguaje coloquial (la `consulta`) y los **artículos determinantes** (`positivo`). Cada positivo genera un **negativo fácil** (pool curado de tema distinto) y un **negativo difícil** (segunda llamada LLM: artículo real, temáticamente cercano, que no aplica). Las 4 vías comparten la blacklist de `descartados.csv` para no reprocesar sentencias ya vistas.
-2. **Diccionario de artículos** (`ds_diccionario_articulos.ipynb`): extrae el texto íntegro de cada norma citada (CST, Constitución, ~40 leyes/decretos) desde los portales oficiales usando `fuentes_normas.csv` (URLs resueltas a mano).
-3. **Join** (inicio del notebook de fine-tuning): la cita `CST Art. 127` se separa en la llave `(fuente, numero)` con normalización (NFKD: tildes, mayúsculas, espacios) y se une al diccionario para obtener `texto_input = "CST. " + texto_completo`. El texto del artículo NO vive embebido en cada fila: vive una sola vez en el diccionario (evita duplicar texto, sirve también en producción y centraliza correcciones).
-4. **Limpieza**: se descartan 23 pares sin texto (21 citan una norma completa sin número de artículo, 2 sin fuente pública) → 538 utilizables.
-5. **Split por sentencia** (`GroupShuffleSplit`, seed 42, dos etapas: 15% test, luego 15/85 del resto para validation): el positivo y sus negativos comparten la misma consulta, así que dividir por fila filtraría la consulta a varios splits (**fuga**). Split por sentencia lo impide.
-6. **Tokenización**: pares a 512 tokens con `truncation="only_second"` (la consulta nunca se pierde; la norma se recorta al prefijo).
+### Tamaño, split e idioma
 
-### Tamaño y split
-
-561 pares pregunta→norma (285 positivos, 138 negativos fáciles, 138 negativos difíciles) → **538 utilizables** (labels 0:276 / 1:262):
+561 pares (285 positivos, 138 negativos fáciles, 138 negativos difíciles) → **538 utilizables** (label 0: 276 / 1: 262):
 
 | Partición | Pares | Sentencias | Positivos |
 |---|---|---|---|
@@ -142,10 +130,12 @@ El pipeline completo se documenta paso a paso en esta sección y en los notebook
 | Validation | 87 | 21 | 45 |
 | Test | 76 | 21 | 34 |
 
-**Idioma:** español. **Licencia:** textos normativos y sentencias de dominio público (fuentes oficiales del Estado colombiano); los pares de entrenamiento (extracción y negativos generados por LLM) son material propio del equipo. Código: MIT.
+**Idioma:** español. **Licencia:** normas y sentencias son de dominio público (fuentes oficiales del Estado colombiano); los pares de entrenamiento (extracción y negativos vía LLM) son material propio del equipo. Código: MIT.
+
+**Sesgos y limitaciones.** El corpus depende de qué llega a instancias judiciales superiores: sobrerrepresenta estabilidad laboral reforzada (embarazo, salud, discapacidad — lo que más llega a tutela) y subrepresenta jornada/recargos y factores salariales; vacaciones está casi en cero pese a haberse probado varios canales de búsqueda, posible hueco estructural de la fuente, no de cobertura.
 
 ## Reproducibilidad y equipo
 
-Reproducible de punta a punta en `notebooks/finetuning/Fine_tuning_Asistente_legal.ipynb` (salidas preservadas): seed 42, REF de datos = `main` (commits fijados en la entrega), adaptador LoRA `s04_lora_adapter` y gráficas en la carpeta de salida. Requiere `pip install -r requirements.txt`; las claves API solo se usan en la recolección del dataset (`notebooks/dataset/`).
+`notebooks/finetuning/Fine_tuning_Asistente_legal.ipynb` corre de punta a punta en Colab con seed 42 fija y outputs preservados. `REF` de datos apunta a `main`. Las claves API solo se usan en la recolección del dataset (`notebooks/dataset/`).
 
 **Equipo — "Lawten"**: Pablo Cabrejos, Miguel Ángel Ortiz, Martín Valencia, Samuel López.
