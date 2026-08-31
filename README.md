@@ -7,6 +7,8 @@ Asistente de apoyo para abogados junior colombianos: dado un texto de consulta, 
 | Archivo | Contenido |
 |---|---|
 | `notebooks/fine-tuning/fine_tuning_asistente_legal.ipynb` | **Entrega M1**: carga de BETO, LoRA, entrenamiento, baselines, evaluación y ejemplos cualitativos (corre end-to-end en Colab T4) |
+| `notebooks/evaluation/harness_de_evaluacion.ipynb` | **Entrega M2**: harness de evaluación (métrica automática, LLM-as-a-judge, aciertos de dominio) y scorecard del sistema real de M1 |
+| `s04_lora_adapter/` | Adaptador LoRA entrenado (pesos, no el backbone de BETO) usado por el harness de M2 |
 | `notebooks/decisiones_base_encoder.ipynb` | Justificación de familia/modelo base (tokenización de dominio) |
 | `notebooks/dataset/` | Recolección y pre-procesamiento del corpus: `ds_parte1_redal`, `ds_parte2_corte_const`, `ds_parte3_research_list`, `ds_parte4_sl_casacion`, `ds_diccionario_articulos` |
 | `data/` | Dataset de entrenamiento e insumos: `dataset_cross_encoder.csv`, `diccionario_articulos.csv`, `fuentes_normas.csv`, `descartados.csv`, `candidatas_research.csv` |
