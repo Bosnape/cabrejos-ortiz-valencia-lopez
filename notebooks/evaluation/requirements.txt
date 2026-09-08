@@ -1,0 +1,11 @@
+# Entorno validado con Python 3.11 en Windows (CPU).
+sentence-transformers==6.0.1
+transformers==5.16.1
+peft==0.20.0
+accelerate==1.14.0
+anthropic==1.4.0
+pandas==3.0.5
+python-dotenv==1.2.3
+torch==2.14.0
+ipykernel==7.3.0
+matplotlib==3.11.1
