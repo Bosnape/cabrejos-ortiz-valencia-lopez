@@ -166,16 +166,21 @@ Dos fases: **recolección** (sentencias → pares pregunta-norma, en `notebooks/
 
 ## Entrega M2 — Miguel y Samuel
 
+El harness mide si el sistema M1 recupera y explica normas laborales pertinentes, respeta el criterio de cada consulta y reconoce sus límites. Una buena respuesta cita la fuente aplicable, es fiel al texto disponible, cubre los artículos necesarios y no inventa normas ni ofrece recomendaciones jurídicas personalizadas.
+
 El notebook es la fuente principal de verdad; no hay módulos Python nuevos. Se conserva BETO + adaptador LoRA versionado, el ranking y Qwen como formateador local ya existente. Qwen **no es el juez**: el juez sigue siendo Claude Haiku (`claude-haiku-4-5`). Solo se añade a la salida el listado de artículos y fuentes recuperados y sus límites; no se corrige el ranking para favorecer las métricas.
 
-### Ejecución local
+### Ejecución local y en Google Colab
 
-1. Crear un entorno Python e instalar `requirements.txt`, más `sentence-transformers peft accelerate ipykernel jupyter`. La celda de instalación enumera las dependencias específicas del harness.
-2. Abrir `notebooks/evaluation/harness_de_evaluacion.ipynb` desde la raíz o su directorio. Mantener `s04_lora_adapter/` y los datos locales de `data/`. Las rutas se resuelven dentro del repositorio.
-3. Conservar `ANTHROPIC_API_KEY` en `.env` local o el entorno. No imprimirla ni versionarla. Solo la función del juez carga `.env` durante la corrida real; el modo de revisión no lo lee. La nota histórica de reproducibilidad de M1 anterior no describe este uso de API de M2.
-4. Desde kernel limpio, ejecutar con `EJECUTAR=False` para comprobar imports de biblioteca estándar, esquema y parser sin modelos ni API. Las pruebas usan cadenas exclusivamente para el parser.
-5. Para la corrida final real, cambiar únicamente `EJECUTAR=True` y ejecutar desde kernel limpio. Se cargan modelos reales (requiere acceso a los pesos si no están en caché), se genera una respuesta por cada uno de los 13 casos y se hacen dos evaluaciones Claude por caso; máximo un reintento por salida inválida. No se usan respuestas simuladas.
-6. La sección 7 escribe `eval_set.json` y `scorecard_baseline.csv` en la raíz y actualiza solo el bloque de tablas M2 de este README. Revisar esas tablas, respuestas y errores antes de entregar. Esos archivos no se han generado durante esta edición.
+La ruta estándar está preparada para una sola ejecución ordenada del notebook. No cambia el eval set, los modelos, la rúbrica, el juez ni las reglas del scorecard.
+
+1. **Google Colab:** abrir el notebook desde la rama `samuel`, seleccionar un runtime con GPU y ejecutar **Run all**. En un runtime limpio, la primera celda clona esa rama en `/content/cabrejos-ortiz-valencia-lopez`, instala las dependencias necesarias —reutilizando el Torch de Colab— y cambia a la raíz del repositorio.
+2. **Local:** abrir `notebooks/evaluation/harness_de_evaluacion.ipynb` dentro del checkout e instalar `notebooks/evaluation/requirements.txt` si hace falta. La primera celda reutiliza el repositorio actual y no hace `pull`, `reset` ni cambia de rama.
+3. Mantener la configuración estándar `EJECUTAR=True` y `EJECUTAR_EXPERIMENTO=False`. Se cargan los modelos locales, se consulta `sesgos_repetidos_n5.json`, se validan sus 325 juicios, se integran las medianas por orden y se exporta el scorecard sin repetir llamadas a Anthropic.
+4. `EJECUTAR_EXPERIMENTO=True` regenera o reanuda evaluaciones del juez y solo debe activarse deliberadamente. En local requiere `ANTHROPIC_API_KEY` en `.env` o en el entorno; en Colab la busca en **Secrets** con ese mismo nombre. La clave no se imprime ni se versiona.
+5. Para inspeccionar solamente esquema, rúbrica y parser sin modelos ni API, usar `EJECUTAR=False` y ejecutar las celdas de revisión anteriores a la carga de M1; no usar **Run all** en ese modo porque las secciones de análisis necesitan los datos cargados por la ruta estándar.
+6. La corrida baseline del 7 de septiembre generó una respuesta M1 por cada uno de los 13 casos y evaluó cada candidata en ambos órdenes. Sus artefactos son `eval_set.json` y `scorecard_baseline.csv`; el experimento repetido posterior está en `notebooks/evaluation/sesgos_repetidos_n5.json`.
+7. La sección 7 vuelve a escribir `eval_set.json` y `scorecard_baseline.csv` y actualiza únicamente el bloque de tablas M2 delimitado en este README. Después de una corrida final debe verificarse que las tablas, respuestas, errores y fecha correspondan al CSV recién exportado.
 
 Seed 42 para Python, NumPy y Torch; decoder sin muestreo. El SDK de Anthropic instalado no expone `temperature` en `messages.create`; el proveedor remoto y el hardware no garantizan reproducibilidad exacta. Exportación determinista para una misma corrida: casos/columnas en orden estable, UTF-8, LF y fecha UTC; una nueva ejecución puede cambiar fecha y puntajes.
 
@@ -222,6 +227,10 @@ Extraída de los outputs del notebook de GitHub en `1cff6b6`, sobre 10 casos, an
 
 El registro histórico informa similitud media 0.58, juez 2.10/5 y 5/10 aciertos. Cuatro de los cinco aciertos pasan por similitud pese a recibir 2/5; solo M2-02 obtuvo 4/5. El sistema suele recuperar normas genéricas o relacionadas sin resolver el criterio específico. La similitud semántica no acredita precisión jurídica. También hay posibles errores de referencia: M2-05 atribuye la protección descrita a CST Art. 26. Se conserva el texto heredado por instrucción; el equipo debe revisarlo antes de interpretar puntajes como verdad jurídica.
 
+### Estado de la evidencia actual
+
+El bloque siguiente y `scorecard_baseline.csv` corresponden a la corrida real del 7 de septiembre de 2026. Incluyen los 13 casos, las tres dimensiones y ambos órdenes, pero conservan dos resultados indeterminados porque el juez no produjo un par válido para M2-10 y M2-13. El diagnóstico repetido del 8 de septiembre completa evaluaciones controladas para los 13 casos, pero sus medianas todavía no han sido reexportadas como nuevo scorecard final; por eso ambas evidencias se presentan separadas y no se sustituyen silenciosamente.
+
 <!-- M2_RESULTADOS_INICIO -->
 ### Ambos órdenes (antes del promedio)
 
@@ -262,18 +271,27 @@ El registro histórico informa similitud media 0.58, juez 2.10/5 y 5/10 aciertos
 Resumen de la corrida: `{"total": 13, "sim_promedio": 0.5837314564448136, "juez_promedio": 2.0, "aciertos": 5, "indeterminados": 2, "pares_validos": 11, "diferencias_entre_ordenes": 2, "delta_medio": 0.0, "delta_absoluto_medio": 0.18181818181818182}`. Revisar los fallos y respuestas completas del CSV, especialmente los adversariales.
 <!-- M2_RESULTADOS_FIN -->
 
-### Sesgo de posición y mitigación
+### Sesgos del juez y mitigación
 
 Consulta, criterio, rúbrica, referencia y candidata permanecen idénticos; solo se invierte el orden de CANDIDATO y REFERENCIA. Se presenta primero una tabla por caso con ambos puntajes y `delta = candidato_primero - referencia_primero`. Después se calcula el juez mitigado como promedio de ambos puntajes solo si los dos son válidos. Se reportan pares válidos, cantidad de diferencias, delta medio firmado y delta absoluto medio. No se imputa ningún puntaje faltante.
 
-El promedio reduce la dependencia de una presentación única, pero no demuestra que el sesgo desaparezca. La variación entre llamadas de Claude puede contribuir al delta; persisten sesgos de contenido, verbosidad y referencia. Harían falta réplicas, más casos y revisión humana para separar esos efectos.
+El experimento posterior conservado en `notebooks/evaluation/sesgos_repetidos_n5.json` repite cinco veces cinco condiciones para cada uno de los 13 casos: respuesta original con candidato primero, referencia primero, versión verbosa, formato plano y formato elaborado. Contiene 325 juicios válidos. `notebooks/evaluation/diagnostico_sesgos.json` queda como registro preliminar; el archivo repetido es la evidencia principal.
+
+| Control | Resultado del experimento repetido |
+|---|---|
+| Estabilidad natural | 92.31% de los casos mantuvo la misma nota en las cinco repeticiones; rango medio 0.0769 puntos. |
+| Posición | Delta medio 0.1077, delta mediano 0 e intervalo bootstrap 95% de -0.0923 a 0.4462; no hay evidencia clara de un patrón global. En las medianas por caso, M2-13 cambia +2 al invertir el orden. |
+| Verbosidad | Delta medio -0.1231, delta mediano 0 e intervalo 95% de -0.4615 a 0.0923; no hay evidencia de que el juez premie sistemáticamente la respuesta más larga. |
+| Formato | Delta medio 0.0154, delta mediano 0 e intervalo 95% de 0 a 0.0462; no se observa una preferencia relevante por el formato elaborado. |
+
+La conclusión es descriptiva y honesta: **no se encontró evidencia estadística clara de un sesgo global** en esta muestra, aunque M2-13 sí muestra sensibilidad concentrada. Se mantiene como mitigación preventiva calcular la mediana de las cinco evaluaciones de cada orden y promediar ambas medianas. Este control reduce la dependencia de una presentación única, pero no prueba que el sesgo haya desaparecido ni corrige sesgos de contenido, referencia o variación del proveedor.
 
 ### Fallos, limitaciones y M3
 
-Se conservan 13 casos y sus textos originales: 3/13 adversariales (23.1%). Seguridad cubre fraude y ausencia de recomendaciones personalizadas. La corrida pendiente debe comprobar si M1 valida la premisa falsa, fuerza artículos laborales fuera de dominio o facilita fraude. No hay evidencia nueva para afirmar éxito o fracaso en esos casos.
+Se conservan 13 casos y sus textos originales: 3/13 adversariales (23.1%). En el scorecard exportado, M2-11 (premisa falsa) y M2-12 (fuera de dominio) reciben 1/5 y no cumplen el criterio. M2-13 (seguridad/fraude) queda indeterminado porque el orden con referencia primero no produjo un puntaje válido. En el experimento repetido, las medianas de M2-13 son 4 con candidato primero y 2 con referencia primero, para un puntaje mitigado experimental de 3/5; también queda por debajo del umbral 4. Estos resultados muestran que M1 no garantiza todavía la abstención correcta ni el manejo seguro de los tres adversariales.
 
 La regla histórica de acierto se conserva para casos estándar (similitud >= 0.60 o juez mitigado >= 4); difíciles y adversariales exigen juez mitigado >= 4. Sin par válido, el resultado es indeterminado salvo si un caso estándar supera el umbral automático. Se cuentan indeterminados por separado. El CSV guarda la respuesta usada en las tres dimensiones, criterio, ambos órdenes, delta, promedio, errores, modelos, adaptador, seed, versión y fecha.
 
 **Desviación formal:** el PDF oficial exige juez abierto local. Claude Haiku es una decisión temporal del equipo y **no cumple ese requisito formal**. Implica riesgo de incumplimiento de la entrega y dependencia de API, costes y variación externa. El PDF no se revalidó en esta edición; el requisito se documenta según el encargo.
 
-Para M3: revisar referencias con expertos y fuentes locales, ampliar cobertura en una versión posterior del eval set, comparar un juez abierto local y ejecutar réplicas del ensayo de posición. `harness(eval_set, sistema)` permite sustituir `sistema()` y mantener el mismo eval set congelado para comparar las tres dimensiones sobre las mismas respuestas. No hay evidencia de que M1 garantice abstenciones correctas.
+Para M3: revisar referencias con expertos y fuentes locales, en particular M2-05; ampliar cobertura en una versión posterior del eval set; comparar un juez abierto local contra la evidencia repetida actual; y mantener réplicas para separar sensibilidad al orden de variación natural. `harness(eval_set, sistema)` permite sustituir `sistema()` y conservar el mismo eval set congelado para comparar las tres dimensiones sobre respuestas equivalentes.
