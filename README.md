@@ -164,7 +164,7 @@ Dos fases: **recolección** (sentencias → pares pregunta-norma, en `notebooks/
 **Equipo — "Lawten"**: Pablo Cabrejos, Miguel Ángel Ortiz, Martín Valencia, Samuel López.
 
 
-## Entrega M2 — Miguel y Samuel
+## Entrega M2 
 
 El harness mide si el sistema M1 recupera y explica normas laborales pertinentes, respeta el criterio de cada consulta y reconoce sus límites. Una buena respuesta cita la fuente aplicable, es fiel al texto disponible, cubre los artículos necesarios y no inventa normas ni ofrece recomendaciones jurídicas personalizadas.
 
