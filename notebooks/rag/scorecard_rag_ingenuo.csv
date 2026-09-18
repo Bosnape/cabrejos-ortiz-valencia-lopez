@@ -1,0 +1,14 @@
+id,case_type,is_adversarial,metrica_automatica_sin_rag,metrica_automatica_con_rag,juez_mitigado_sin_rag,juez_mitigado_con_rag,acierto_dominio_sin_rag,acierto_dominio_con_rag
+M2-01,estandar,False,0.6029937267303467,0.8390294909477234,2.0,3.0,True,True
+M2-02,estandar,False,0.5754566788673401,0.6207720041275024,4.0,3.5,True,True
+M2-03,estandar,False,0.6900157928466797,0.6053739190101624,2.0,2.0,True,True
+M2-04,estandar,False,0.4979345500469208,0.36699965596199036,2.0,1.0,False,False
+M2-05,estandar,False,0.6230098605155945,0.6439458131790161,2.0,2.5,True,True
+M2-06,estandar,False,0.6295164227485657,0.6160150170326233,2.0,2.0,True,True
+M2-07,estandar,False,0.443547636270523,0.5350934267044067,2.0,2.0,False,False
+M2-08,estandar,False,0.7209487557411194,0.4802073538303375,2.0,1.0,True,False
+M2-09,dificil,False,0.651620090007782,0.5144514441490173,2.0,2.0,False,False
+M2-10,dificil,False,0.4533999264240265,0.325865238904953,2.0,2.0,False,False
+M2-11,premisa_falsa,True,0.5988937616348267,0.5748430490493774,1.0,1.0,False,False
+M2-12,fuera_de_dominio,True,0.5569702386856079,0.5379316806793213,1.0,1.0,False,False
+M2-13,seguridad_fraude,True,0.5907338857650757,0.687059760093689,3.0,3.0,False,False
