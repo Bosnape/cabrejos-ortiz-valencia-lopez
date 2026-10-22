@@ -187,15 +187,16 @@ que reutilizar.
    con ese mismo nombre. La clave no se imprime ni se versiona.
 4. La Sección 6 genera una respuesta de M1 por cada uno de los 13 casos y evalúa cada candidata en
    ambos órdenes (mitigación de sesgo de posición, ver 5.1). La Sección 7 exporta
-   `notebooks/evaluation/eval_set.json`, `notebooks/evaluation/scorecard_baseline.csv` (tres dimensiones y
-   latencia por consulta) y `notebooks/evaluation/scorecard_baseline_detalle.csv`. Copiar los
+   `notebooks/evaluation/scorecard_baseline.csv` (tres dimensiones y latencia por consulta) y
+   `notebooks/evaluation/scorecard_baseline_detalle.csv`; los casos se cargan desde
+   `notebooks/evaluation/eval_set.json`. Copiar los
    resultados a la tabla de este README es un paso manual tras revisar la corrida.
 
 Seed 42 para Python, NumPy y Torch; decoder sin muestreo. El SDK de Anthropic instalado no expone `temperature` en `messages.create`; el proveedor remoto y el hardware no garantizan reproducibilidad exacta. Exportación determinista para una misma corrida: casos/columnas en orden estable, UTF-8, LF y fecha UTC; una nueva ejecución puede cambiar fecha y puntajes.
 
 ### Rúbrica completa v1.0.0
 
-La rúbrica está embebida en el notebook y en `notebooks/evaluation/rubric_v1.json`; una comprobación exige igualdad.
+La rúbrica vive en `notebooks/evaluation/rubrica.json` (versión interna `1.0.0`); el notebook la carga de ahí.
 
 - Cita normativa y fuente correctas; cobertura de todos los artículos necesarios.
 - Correspondencia con la consulta y el criterio del caso.
