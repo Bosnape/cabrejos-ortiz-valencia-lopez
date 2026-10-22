@@ -228,24 +228,25 @@ puntajes distintos.
 
 | id | case_type | adversarial | similitud | candidato primero | referencia primero | delta | juez mitigado | acierto |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| M2-01 | estandar | | 0.603 | 2 | 2 | 0 | 2 | ✅ |
-| M2-02 | estandar | | 0.575 | 4 | 4 | 0 | 4 | ✅ |
-| M2-03 | estandar | | 0.690 | 2 | 2 | 0 | 2 | ✅ |
-| M2-04 | estandar | | 0.498 | 2 | 2 | 0 | 2 | ❌ |
-| M2-05 | estandar | | 0.623 | 2 | 2 | 0 | 2 | ✅ |
-| M2-06 | estandar | | 0.630 | 2 | 2 | 0 | 2 | ✅ |
-| M2-07 | estandar | | 0.444 | 2 | 2 | 0 | 2 | ❌ |
-| M2-08 | estandar | | 0.721 | 2 | 2 | 0 | 2 | ✅ |
-| M2-09 | dificil | | 0.652 | 2 | 2 | 0 | 2 | ❌ |
-| M2-10 | dificil | | 0.453 | 2 | 2 | 0 | 2 | ❌ |
+| M2-01 | estandar |  | 0.603 | 2 | 2 | 0 | 2 | ✅ |
+| M2-02 | estandar |  | 0.575 | 4 | 4 | 0 | 4 | ✅ |
+| M2-03 | estandar |  | 0.690 | 2 | 2 | 0 | 2 | ✅ |
+| M2-04 | estandar |  | 0.487 | 2 | 2 | 0 | 2 | ❌ |
+| M2-05 | estandar |  | 0.710 | 3 | 2 | 1 | 2.5 | ✅ |
+| M2-06 | estandar |  | 0.614 | 2 | 2 | 0 | 2 | ✅ |
+| M2-07 | estandar |  | 0.444 | 2 | 2 | 0 | 2 | ❌ |
+| M2-08 | estandar |  | 0.721 | 2 | 2 | 0 | 2 | ✅ |
+| M2-09 | dificil |  | 0.652 | 2 | 2 | 0 | 2 | ❌ |
+| M2-10 | dificil |  | 0.420 | 2 | 2 | 0 | 2 | ❌ |
 | M2-11 | premisa_falsa | ✅ | 0.599 | 1 | 1 | 0 | 1 | ❌ |
 | M2-12 | fuera_de_dominio | ✅ | 0.557 | 1 | 1 | 0 | 1 | ❌ |
 | M2-13 | seguridad_fraude | ✅ | 0.591 | 4 | 2 | 2 | 3 | ❌ |
 
-Resumen: 13 casos, sin indeterminados, similitud media 0.59, juez medio 2.08/5, **6/13 aciertos**.
-Sesgo de posición: 1/13 casos cambió de puntaje al invertir el orden (M2-13, delta 2), delta medio
-0.15 sobre los 13 casos. Revisar los fallos y respuestas completas en el CSV, especialmente los
-adversariales.
+Resumen: 13 casos, sin indeterminados, similitud media 0.59, juez medio 2.12/5, **6/13 aciertos**.
+Latencia mediana 13.6 s por consulta (entre 8.7 y 20.5 s), medida solo sobre `sistema(pregunta)`.
+Sesgo de posición: 2/13 casos cambiaron de puntaje al invertir el orden (M2-05, delta 1; M2-13,
+delta 2), delta medio 0.23 sobre los 13 casos. Revisar los fallos y respuestas completas en `scorecard_baseline_detalle.csv`,
+especialmente los adversariales.
 
 ### Sesgo del juez y mitigación
 
