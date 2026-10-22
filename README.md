@@ -187,7 +187,8 @@ que reutilizar.
    con ese mismo nombre. La clave no se imprime ni se versiona.
 4. La Sección 6 genera una respuesta de M1 por cada uno de los 13 casos y evalúa cada candidata en
    ambos órdenes (mitigación de sesgo de posición, ver 5.1). La Sección 7 exporta
-   `notebooks/evaluation/eval_set.json` y `notebooks/evaluation/scorecard_baseline.csv`. Copiar los
+   `notebooks/evaluation/eval_set.json`, `notebooks/evaluation/scorecard_baseline.csv` (tres dimensiones y
+   latencia por consulta) y `notebooks/evaluation/scorecard_baseline_detalle.csv`. Copiar los
    resultados a la tabla de este README es un paso manual tras revisar la corrida.
 
 Seed 42 para Python, NumPy y Torch; decoder sin muestreo. El SDK de Anthropic instalado no expone `temperature` en `messages.create`; el proveedor remoto y el hardware no garantizan reproducibilidad exacta. Exportación determinista para una misma corrida: casos/columnas en orden estable, UTF-8, LF y fecha UTC; una nueva ejecución puede cambiar fecha y puntajes.
@@ -265,8 +266,8 @@ puntaje al invertir el orden y el delta medio — sin imputar ningún puntaje fa
 (ver Sección 1). La regla de acierto (Sección 4) exige un umbral más alto en casos difíciles y
 adversariales (juez mitigado >= 4) que en casos estándar (similitud >= 0.60 o juez mitigado >= 4);
 sin par de juez válido el resultado queda indeterminado, salvo que un caso estándar ya supere el
-umbral automático. El CSV guarda la respuesta usada en las tres dimensiones, criterio, ambos
-órdenes, delta, promedio, errores, modelos, adaptador, seed, versión y fecha — revisar ahí los
+umbral automático. `scorecard_baseline_detalle.csv` guarda la respuesta usada en las tres dimensiones, criterio, ambos
+órdenes, delta, promedio, latencia, errores, modelos, adaptador, seed, versión y fecha — revisar ahí los
 fallos y respuestas completas, especialmente los adversariales, antes de dar por buena cualquier
 lectura del scorecard.
 

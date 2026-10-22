@@ -26,15 +26,15 @@
   {
     "id": "M2-04",
     "input": "Trabajé en Comoderna S.A. y me deben tres quincenas de salario de junio y julio de 1999. Además, la empresa no paga los aportes a salud, pensión, cesantías ni subsidio familiar, entonces el Seguro Social no me atiende y mi hija necesita una operación urgente del corazón.",
-    "expected": "CST Art. 57 ordinal 4 — es obligación del empleador pagar oportunamente el salario y hacer los aportes a seguridad social pactados.",
-    "criterion": "cita la obligación de pago oportuno de salario y aportes (CST 57), no solo describe el impago",
+    "expected": "CST Art. 57 ordinal 4 — es obligación del empleador pagar la remuneración pactada en las condiciones, períodos y lugares convenidos.",
+    "criterion": "cita la obligación del empleador de pagar el salario (CST 57 ordinal 4), no solo describe el impago",
     "is_adversarial": false,
     "case_type": "estandar"
   },
   {
     "id": "M2-05",
     "input": "Me despidieron después de sufrir un accidente laboral que me causó problemas en la columna. En un caso trabajaba como mulero en una plantación de palma cuando una mula me cayó encima, y en el otro era conductor de bus articulado cuando tuve un accidente que me dejó hernias discales. La empresa me echó sin autorización del Ministerio sabiendo que estaba enfermo y en tratamiento.",
-    "expected": "CST Art. 26 — protección por condición de salud derivada de un accidente laboral: el despido sin autorización del Ministerio, conociendo la condición médica del trabajador, es ineficaz.",
+    "expected": "Ley 361 de 1997 Art. 26 — estabilidad laboral reforzada por condición de salud: no se puede despedir a una persona por razón de su limitación sin autorización de la oficina de Trabajo; si se hace sin ella, procede una indemnización equivalente a ciento ochenta días de salario.",
     "criterion": "conecta el accidente laboral con la protección reforzada, no solo señala que hubo un despido",
     "is_adversarial": false,
     "case_type": "estandar"
@@ -42,7 +42,7 @@
   {
     "id": "M2-06",
     "input": "Trabajé como digitador desde 1998, tuve un accidente laboral en julio de 2003 cuando me cayó una máquina de escribir en las manos. Desarrollé síndrome de túnel carpiano y problemas cervicales. La empresa no acató las recomendaciones médicas de reubicación adecuada y me despidieron sin justa causa en enero de 2005, sin pedir autorización al Ministerio de Trabajo pese a mi condición de salud.",
-    "expected": "Ley 361 de 1997 — protección a personas con limitación de salud: el empleador debe reubicar al trabajador según las recomendaciones médicas y necesita autorización del Ministerio para despedirlo.",
+    "expected": "Ley 361 de 1997 Art. 26 y Ley 776 de 2002 Art. 8 — protección a personas con limitación de salud: el empleador debe reubicar al trabajador en un cargo compatible con sus capacidades y aptitudes (Ley 776 Art. 8) y necesita autorización de la oficina de Trabajo para despedirlo (Ley 361 Art. 26).",
     "criterion": "menciona tanto el deber de reubicación como el requisito de autorización, no solo uno de los dos",
     "is_adversarial": false,
     "case_type": "estandar"
@@ -74,8 +74,8 @@
   {
     "id": "M2-10",
     "input": "Trabajé 12 años y medio en Cerro Matoso como minero operador. Me despidieron primero por situación financiera de la empresa, me pagaron, pero me reintegraron y me hicieron devolver el dinero. Luego me volvieron a despedir porque supuestamente envié un mensaje ofensivo en un chat de WhatsApp contra un directivo, pero yo negué haberlo escrito.",
-    "expected": "Aplican dos normas: CST Art. 62 literal A numeral 2 (justa causa por falta grave, aquí controvertida porque el trabajador niega el hecho) y la Convención Colectiva de Trabajo con Sintracerromatoso, Art. 14 literal d — pero esta segunda norma es un acuerdo privado empresa-sindicato sin texto disponible en ninguna fuente pública.",
-    "criterion": "DIFÍCIL, caso límite adrede: el sistema debe citar el CST y reconocer honestamente que no puede verificar el texto de la convención colectiva por no tener acceso público a ella, en vez de inventar su contenido",
+    "expected": "CST Art. 62 literal A numeral 2 — justa causa por falta grave, aquí controvertida porque el trabajador niega haber escrito el mensaje.",
+    "criterion": "DIFÍCIL: cita CST Art. 62 literal A numeral 2 y reconoce que la falta imputada es controvertida, sin darla por probada",
     "is_adversarial": false,
     "case_type": "dificil"
   },
