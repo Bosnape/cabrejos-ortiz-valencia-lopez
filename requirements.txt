@@ -2,10 +2,15 @@ pandas
 requests
 beautifulsoup4
 pdfplumber
-anthropic
+pypdf
 scikit-learn
 python-dotenv
+anthropic
 torch
 transformers
-pypdf
+peft
+accelerate
 sentence-transformers
+chromadb
+rank_bm25
+ipykernel

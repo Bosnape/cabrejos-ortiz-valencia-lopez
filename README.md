@@ -176,12 +176,15 @@ Una sola ruta de ejecución, sin flags ni modos alternativos: **Run all** siempr
 real de M1 y a Claude Haiku, y siempre exporta un scorecard fresco. No hay resultados congelados
 que reutilizar.
 
+Todos los notebooks del proyecto se ejecutaron en Google Colab gratuito con GPU T4; las latencias
+reportadas corresponden a ese entorno.
+
 1. **Google Colab:** abrir el notebook desde la rama `main`, seleccionar un runtime con GPU y
    ejecutar **Run all**. En un runtime limpio, la primera celda clona el repositorio en
    `/content/cabrejos-ortiz-valencia-lopez`, instala las dependencias necesarias —reutilizando el
    Torch de Colab— y cambia a la raíz del repositorio.
 2. **Local:** abrir `notebooks/evaluation/harness_de_evaluacion.ipynb` dentro del checkout e
-   instalar `notebooks/evaluation/requirements.txt` si hace falta. La primera celda reutiliza el
+   instalar el `requirements.txt` de la raíz si hace falta. La primera celda reutiliza el
    repositorio actual y no hace `pull`, `reset` ni cambia de rama.
 3. Requiere `ANTHROPIC_API_KEY` en `.env` local o en el entorno; en Colab la busca en **Secrets**
    con ese mismo nombre. La clave no se imprime ni se versiona.
@@ -273,8 +276,8 @@ umbral automático. `scorecard_baseline_detalle.csv` guarda la respuesta usada e
 fallos y respuestas completas, especialmente los adversariales, antes de dar por buena cualquier
 lectura del scorecard.
 
-**Desviación formal:** el PDF oficial exige juez abierto local. Claude Haiku es una decisión temporal del equipo y **no cumple ese requisito formal**. Implica riesgo de incumplimiento de la entrega y dependencia de API, costes y variación externa. El PDF no se revalidó en esta edición; el requisito se documenta según el encargo.
+**Juez:** el PDF de M2 sugiere un juez abierto y pequeño. Para este proyecto en particular se usa Claude Haiku (`claude-haiku-4-5`) como juez a través de una API key de Anthropic, con aprobación del profesor. Implica dependencia de la API, costos y variación externa del proveedor; la clave se configura en `.env` local o en los Secrets de Colab con el nombre `ANTHROPIC_API_KEY`.
 
-**Por qué se desvió:** se probó primero Qwen2.5-1.5B-Instruct (el juez local que trae el notebook base del curso). Forzado a devolver un solo dígito, colapsaba casi siempre a "1" sin importar la calidad real de la respuesta; dejado razonar antes de puntuar, inventaba justificaciones no ancladas en el texto evaluado. Comparado luego contra Haiku sobre las mismas 10 respuestas reales del sistema, ese juez local además **invertía el orden de calidad**: dio su puntaje más alto (3/5) a dos respuestas evasivas que ignoraban un artículo correcto disponible, y el más bajo (1/5) a la única respuesta parcialmente correcta del lote. Con el mismo formato de un dígito sin explicación, Haiku ordena las respuestas en la dirección correcta (detalle y ejemplos en la Sección 3 del notebook). El hallazgo es real, pero no exime del requisito formal — queda como decisión a validar con el profesor.
+**Por qué Haiku y no un juez local:** se probó primero Qwen2.5-1.5B-Instruct (el juez local que trae el notebook base del curso). Forzado a devolver un solo dígito, colapsaba casi siempre a "1" sin importar la calidad real de la respuesta; dejado razonar antes de puntuar, inventaba justificaciones no ancladas en el texto evaluado. Comparado luego contra Haiku sobre las mismas 10 respuestas reales del sistema, ese juez local además **invertía el orden de calidad**: dio su puntaje más alto (3/5) a dos respuestas evasivas que ignoraban un artículo correcto disponible, y el más bajo (1/5) a la única respuesta parcialmente correcta del lote. Con el mismo formato de un dígito sin explicación, Haiku ordena las respuestas en la dirección correcta (detalle y ejemplos en la Sección 3 del notebook).
 
-Para M3: ampliar cobertura en una versión posterior del eval set y resolver la desviación formal probando un juez abierto local contra este mismo eval set antes de la entrega final. `harness(eval_set, sistema)` permite sustituir `sistema()` y conservar el mismo eval set congelado para comparar las tres dimensiones sobre respuestas equivalentes.
+Para M3: ampliar cobertura en una versión posterior del eval set. `harness(eval_set, sistema)` permite sustituir `sistema()` y conservar el mismo eval set congelado para comparar las tres dimensiones sobre respuestas equivalentes.
