@@ -5,11 +5,15 @@ sistema final): la plantilla de respuesta, las tres dimensiones de la evaluació
 cualquier objeto invocable `sistema(pregunta) -> respuesta` que, después de cada llamada, expone
 `sistema.ultimo_contexto`: lista de diccionarios `{'cita', 'texto', 'url'}` con las referencias que usó.
 
+El sistema recupera tres referencias; el código arma la lista con su descripción y el decoder solo escribe
+un resumen neutro de lo que establecen. El decoder no decide qué normas aplican: lo que se evalúa es la
+recuperación y la calidad de lo que el sistema presenta.
+
 Dimensiones:
   1. Métrica clásica: recall@3 de la(s) norma(s) que cita el encabezado de `expected`.
   2. Juez (Claude Haiku, rúbrica `rubrica.json`): valora la respuesta en ambos órdenes y promedia.
-  3. Dominio: la norma esperada llegó al top-3 y el sistema la señaló como pertinente; en los casos de
-     premisa falsa o fuera de dominio, el sistema declaró que ninguna referencia es pertinente.
+  3. Dominio: la norma esperada está entre las tres referencias; en los casos de premisa falsa o fuera de
+     dominio, el juez valora con >= 4 que la respuesta reconoce que las referencias no resuelven la consulta.
 """
 import json
 import math
@@ -25,7 +29,7 @@ import pandas as pd
 NL = chr(10)
 TOP_K = 3
 DESC_CHARS = 400
-MAX_TOKENS_DECODER = 150
+MAX_TOKENS_DECODER = 120
 CASOS_ABSTENCION = ('premisa_falsa', 'fuera_de_dominio')
 CAMPOS_CASO = {'id', 'input', 'expected', 'criterion', 'is_adversarial', 'case_type'}
 
@@ -76,10 +80,10 @@ AVISO = ('Este resultado es informativo y no constituye una recomendación jurí
 
 SISTEMA_DECODER = (
     'Eres un asistente informativo de derecho laboral colombiano. Recibes una consulta y tres referencias '
-    'normativas recuperadas automáticamente, cada una con una descripción. Tu única tarea es valorar cuáles '
-    'referencias son pertinentes para la consulta, usando solo sus descripciones. No agregues normas que no '
-    'estén en la lista. Si ninguna es pertinente, o la consulta parte de una premisa falsa o no es de derecho '
-    'laboral, di que ninguna es pertinente. No des consejos ni recomendaciones.'
+    'normativas recuperadas automáticamente, cada una con una descripción. Escribe un resumen neutro de dos o '
+    'tres frases que diga qué establecen las referencias en relación con el tema de la consulta. No afirmes que '
+    'una norma aplica o no aplica al caso, no agregues normas ni datos que no estén en las descripciones y no '
+    'des consejos ni recomendaciones. Si las referencias no tratan el tema de la consulta, dilo.'
 )
 
 _NOTA = re.compile(r'(?:Modificado|Adicionado|Reglamentado|Derogado|Corregido)[^<]{0,200}?\bde\s+\d{4}\s*\.?\s*(?:<[^>]*>\s*)?')
@@ -107,58 +111,23 @@ def referencias_de(indices, corpus):
 def prompt_decoder(consulta, referencias):
     lineas = '\n'.join(f"{i}. {r['cita']}: {descripcion(r['texto'])}" for i, r in enumerate(referencias, 1))
     return (f'Consulta del trabajador:\n{consulta}\n\nReferencias recuperadas:\n{lineas}\n\n'
-            'Responde exactamente en dos líneas. Primera: "Pertinentes: " seguida de los números de las '
-            'referencias pertinentes separados por coma, o la palabra ninguna. Segunda: "Valoración: " seguida '
-            'de una explicación de máximo tres frases.')
+            'Escribe solo el resumen, sin encabezados ni listas.')
 
 
-def interpretar_decoder(texto, n_referencias=TOP_K):
-    """Devuelve (pertinentes, valoracion, error). `pertinentes` es una lista de posiciones 1..n o None."""
-    m = re.search(r'Pertinentes\s*:\s*([^\n]*)', texto, flags=re.IGNORECASE)
-    if not m:
-        return None, texto.strip(), 'No se encontró la línea Pertinentes'
-    linea = m.group(1)
-    sin_acentos = ''.join(c for c in unicodedata.normalize('NFD', linea.lower()) if unicodedata.category(c) != 'Mn')
-    numeros = sorted({int(n) for n in re.findall(r'\d+', linea) if 1 <= int(n) <= n_referencias})
-    if re.search(r'\bninguna\b|\bningun\b', sin_acentos) and not numeros:
-        pertinentes = []
-    elif numeros:
-        pertinentes = numeros
-    else:
-        return None, texto.strip(), 'La línea Pertinentes no contiene números ni ninguna'
-    v = re.search(r'Valoraci[oó]n\s*:\s*(.*)', texto, flags=re.IGNORECASE | re.DOTALL)
-    valoracion = (v.group(1) if v else texto[m.end():]).strip()
-    return pertinentes, re.sub(r'\s+', ' ', valoracion)[:700], (None if valoracion else 'Sin valoración')
+def limpiar_resumen(texto):
+    t = re.sub(r'^\s*Resumen\s*:\s*', '', texto.strip(), flags=re.IGNORECASE)
+    return re.sub(r'\s+', ' ', t)[:700]
 
 
-def armar_respuesta(referencias, pertinentes, valoracion):
+def armar_respuesta(referencias, resumen):
     lineas = NL.join(f"{i}. {r['cita']}: {descripcion(r['texto'])} ({r['url']})" for i, r in enumerate(referencias, 1))
-    if pertinentes is None:
-        marcadas = 'no determinado'
-    else:
-        marcadas = ', '.join(map(str, pertinentes)) if pertinentes else 'ninguna'
-    return (f'Referencias recuperadas:{NL}{lineas}{NL}{NL}Pertinentes: {marcadas}{NL}'
-            f'Valoración: {valoracion}{NL}{NL}{AVISO}')
+    return f'Referencias recuperadas:{NL}{lineas}{NL}{NL}Resumen: {resumen}{NL}{NL}{AVISO}'
 
 
 def responder(consulta, referencias, generar_texto):
     """Plantilla común. `generar_texto(sistema, usuario, max_new_tokens)` es el decoder del notebook."""
     salida = generar_texto(SISTEMA_DECODER, prompt_decoder(consulta, referencias), MAX_TOKENS_DECODER)
-    pertinentes, valoracion, _ = interpretar_decoder(salida, len(referencias))
-    return armar_respuesta(referencias, pertinentes, valoracion or salida.strip())
-
-
-def leer_respuesta(respuesta):
-    """(pertinentes, error) leídos de una respuesta que sigue la plantilla."""
-    m = re.search(r'^Pertinentes:\s*(.*)$', respuesta, flags=re.MULTILINE)
-    if not m:
-        return None, 'La respuesta no sigue la plantilla'
-    valor = m.group(1).strip().lower()
-    if valor == 'ninguna':
-        return [], None
-    if valor == 'no determinado':
-        return None, 'El decoder no entregó una línea Pertinentes válida'
-    return [int(n) for n in re.findall(r'\d+', valor)], None
+    return armar_respuesta(referencias, limpiar_resumen(salida) or 'No se obtuvo resumen.')
 
 # --------------------------------------------------------------------------------------------------
 # Dimensión 1: recall@3 de la norma esperada
@@ -192,13 +161,10 @@ def recall_3(normas, citas_top3):
 # Dimensión 3: acierto de dominio
 # --------------------------------------------------------------------------------------------------
 
-def es_acierto(caso, normas, citas_top3, pertinentes):
-    if pertinentes is None:
-        return False
+def es_acierto(caso, normas, citas_top3, juez_mitigado):
     if caso['case_type'] in CASOS_ABSTENCION:
-        return pertinentes == []
-    posiciones = [citas_top3.index(n) + 1 for n in normas if n in citas_top3]
-    return len(posiciones) == len(normas) and all(p in pertinentes for p in posiciones)
+        return juez_mitigado is not None and juez_mitigado >= 4
+    return bool(normas) and set(normas) <= set(citas_top3)
 
 # --------------------------------------------------------------------------------------------------
 # Dimensión 2: juez
@@ -309,7 +275,6 @@ def harness(eval_set, sistema, juez, nombre=None, metadatos=None, verbose=True):
         latencia = time.perf_counter() - inicio
         citas = [r['cita'] for r in sistema.ultimo_contexto]
         normas = normas_esperadas(caso['expected'])
-        pertinentes, error_formato = leer_respuesta(respuesta)
         primero, error_p = juez(caso['input'], respuesta, caso['expected'], caso['criterion'], True)
         segundo, error_s = juez(caso['input'], respuesta, caso['expected'], caso['criterion'], False)
         delta = primero - segundo if primero is not None and segundo is not None else None
@@ -317,7 +282,7 @@ def harness(eval_set, sistema, juez, nombre=None, metadatos=None, verbose=True):
         fila = {
             'id': caso['id'], 'case_type': caso['case_type'], 'is_adversarial': caso['is_adversarial'],
             'recall_3': recall_3(normas, citas), 'juez_mitigado': mitigado,
-            'acierto_dominio': es_acierto(caso, normas, citas, pertinentes), 'latencia_seg': latencia,
+            'acierto_dominio': es_acierto(caso, normas, citas, mitigado), 'latencia_seg': latencia,
             'latencia_recuperacion_seg': getattr(sistema, 'latencia_recuperacion', math.nan),
         }
         if nombre:
@@ -326,15 +291,14 @@ def harness(eval_set, sistema, juez, nombre=None, metadatos=None, verbose=True):
         detalle.append({
             **fila, 'input': caso['input'], 'respuesta_sistema': respuesta,
             'articulos_recuperados': ' | '.join(citas), 'normas_esperadas': ' | '.join(normas),
-            'pertinentes': 'ninguna' if pertinentes == [] else ('' if pertinentes is None else ', '.join(map(str, pertinentes))),
             'consultas_reformuladas': ' || '.join(getattr(sistema, 'consultas_reformuladas', [])),
             'puntaje_candidato_primero': primero, 'puntaje_referencia_primero': segundo, 'delta_orden': delta,
-            **metadatos, 'fecha_ejecucion': fecha, 'error_formato': error_formato,
+            **metadatos, 'fecha_ejecucion': fecha,
             'error_candidato_primero': error_p, 'error_referencia_primero': error_s,
         })
         if verbose:
             print(f"{(nombre + ' ') if nombre else ''}{caso['id']}: recall@3={fila['recall_3']} "
-                  f"pertinentes={detalle[-1]['pertinentes'] or 'n/d'} juez={mitigado} acierto={fila['acierto_dominio']}")
+                  f"juez={mitigado} acierto={fila['acierto_dominio']}")
     return {'filas': filas, 'detalle': detalle, 'resumen': resumir(pd.DataFrame(filas), pd.DataFrame(detalle))}
 
 
