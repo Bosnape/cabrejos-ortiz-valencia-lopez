@@ -168,7 +168,7 @@ Dos fases: **recolección** (sentencias → pares pregunta-norma, en `notebooks/
 
 El harness mide si un sistema recupera las normas laborales que resuelven cada caso y si lo que presenta es fiel a ellas, reconoce sus límites y no ofrece recomendaciones jurídicas personalizadas. Una buena respuesta tiene entre sus tres referencias la norma aplicable, las describe con fidelidad y no inventa normas.
 
-La lógica del harness vive en `notebooks/evaluation/harness.py` y la comparten el baseline de M1, el RAG ingenuo, el RAG avanzado y el sistema final: la plantilla de respuesta, las tres dimensiones y el juez son los mismos para todos. Cada sistema recupera tres referencias; el código arma la lista con la descripción de cada una y el decoder (Qwen2.5-1.5B-Instruct) solo escribe un resumen neutro, sin decidir qué normas aplican. El baseline de M1 recupera con el cross-encoder BETO + adaptador LoRA versionado. Qwen **no es el juez**: el juez es Claude Haiku (`claude-haiku-4-5`).
+El notebook es la fuente principal de verdad. Las funciones del harness (plantilla de respuesta, las tres dimensiones y el juez) son las mismas, copiadas tal cual, en los notebooks del baseline de M1, del RAG ingenuo y del RAG avanzado, y se espera lo mismo del sistema final. Cada sistema recupera tres referencias; el código arma la lista con la descripción de cada una y el decoder (Qwen2.5-1.5B-Instruct) solo escribe un resumen neutro, sin decidir qué normas aplican. El baseline de M1 recupera con el cross-encoder BETO + adaptador LoRA versionado. Qwen **no es el juez**: el juez es Claude Haiku (`claude-haiku-4-5`).
 
 ### Ejecución local y en Google Colab
 
@@ -277,7 +277,7 @@ lectura del scorecard.
 
 **Por qué Haiku y no un juez local:** se probó primero Qwen2.5-1.5B-Instruct (el juez local que trae el notebook base del curso). Forzado a devolver un solo dígito, colapsaba casi siempre a "1" sin importar la calidad real de la respuesta; dejado razonar antes de puntuar, inventaba justificaciones no ancladas en el texto evaluado. Comparado luego contra Haiku sobre las mismas 10 respuestas reales del sistema, ese juez local además **invertía el orden de calidad**: dio su puntaje más alto (3/5) a dos respuestas evasivas que ignoraban un artículo correcto disponible, y el más bajo (1/5) a la única respuesta parcialmente correcta del lote. Con el mismo formato de un dígito sin explicación, Haiku ordena las respuestas en la dirección correcta (detalle y ejemplos en la Sección 3 del notebook).
 
-`harness.harness(eval_set, sistema, juez)` permite sustituir `sistema` y conservar el mismo eval set congelado para comparar las tres dimensiones sobre respuestas equivalentes.
+`harness(eval_set, sistema, juez)` permite sustituir `sistema` y conservar el mismo eval set congelado para comparar las tres dimensiones sobre respuestas equivalentes.
 
 ## Entrega M3
 
