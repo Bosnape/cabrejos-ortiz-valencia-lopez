@@ -9,7 +9,10 @@ Asistente de apoyo para abogados junior colombianos: dado un texto de consulta, 
 | Archivo | Contenido |
 |---|---|
 | `notebooks/fine-tuning/fine_tuning_asistente_legal.ipynb` | **Entrega M1**: carga de BETO, LoRA, entrenamiento, baselines, evaluación y ejemplos cualitativos (corre end-to-end en Colab T4) |
-| `notebooks/evaluation/harness_de_evaluacion.ipynb` | **Entrega M2**: harness de evaluación (métrica automática, LLM-as-a-judge, aciertos de dominio) y scorecard del sistema real de M1 |
+| `notebooks/evaluation/harness_de_evaluacion.ipynb` | **Entrega M2**: harness de evaluación (recall@3 de la norma esperada, LLM-as-a-judge, aciertos de dominio) y scorecard del sistema real de M1 |
+| `notebooks/evaluation/eval_set.json`, `notebooks/evaluation/rubrica.json` | Eval set de 13 casos y rúbrica 2.0.0 que leen todos los notebooks de evaluación |
+| `notebooks/rag/rag_ingenuo.ipynb`, `notebooks/rag/rag_avanzado.ipynb` | **Entrega M3**: RAG ingenuo (búsqueda densa) y RAG avanzado (híbrida, reranking con el cross-encoder de M1, multi-query), evaluados con el mismo harness |
+| `notebooks/rag/resultados/` | Scorecards (`.csv` y `_detalle.csv`) del RAG ingenuo y del RAG avanzado, con la ablación de técnicas |
 | `s04_lora_adapter/` | Adaptador LoRA entrenado (pesos, no el backbone de BETO) usado por el harness de M2 |
 | `notebooks/decisiones_base_encoder.ipynb` | Justificación de familia/modelo base (tokenización de dominio) |
 | `notebooks/dataset/` | Recolección y pre-procesamiento del corpus: `ds_parte1_redal`, `ds_parte2_corte_const`, `ds_parte3_research_list`, `ds_parte4_sl_casacion`, `ds_diccionario_articulos` |
@@ -86,7 +89,7 @@ Comparación oficial (fila por fila, mismo `validation`). El producto funciona c
 
 **Recall@3 0.898** vs. 0.478 de BETO zero-shot; **Precision@3 0.487** vs. 0.256.
 
-**Lectura honesta.** Estos números bajan frente a una versión anterior sin los negativos de la Sección 1.1 (F1 val 0.76, test 0.88) — es una compensación deliberada, no una regresión: esa versión anterior rankeaba bien dentro de pools chicos de 3-5 candidatos por sentencia, pero el producto rankea contra el diccionario completo (143 artículos), donde colapsaba en un puñado de artículos "genéricos" sin importar la consulta (verificado en `harness_de_evaluacion.ipynb`). Los negativos adicionales cuestan precision/recall en la tarea de clasificación fila-por-fila, pero el ranking por sentencia mejora (**Recall@3 0.91 val, 0.90 test**, ambos por encima de la meta de 0.85) y el sistema completo, evaluado extremo a extremo contra el harness de M2, mejora de **0/10 a 5/10** en aciertos de dominio frente a la versión sin estos negativos (detalle e interpretación honesta en la sección 8 de `harness_de_evaluacion.ipynb` — buena parte de esos aciertos todavía pasan por similitud de embeddings, no por precisión real del juez). Precision 0.74 en test sigue confirmando que lo que el modelo marca como relacionado casi nunca es ruido.
+**Lectura honesta.** Estos números bajan frente a una versión anterior sin los negativos de la Sección 1.1 (F1 val 0.76, test 0.88) — es una compensación deliberada, no una regresión: esa versión anterior rankeaba bien dentro de pools chicos de 3-5 candidatos por sentencia, pero el producto rankea contra el diccionario completo (143 artículos), donde colapsaba en un puñado de artículos "genéricos" sin importar la consulta (verificado en `harness_de_evaluacion.ipynb`). Los negativos adicionales cuestan precision/recall en la tarea de clasificación fila-por-fila, pero el ranking por sentencia mejora (**Recall@3 0.91 val, 0.90 test**, ambos por encima de la meta de 0.85) y el sistema completo se evalúa extremo a extremo con el harness de M2 (ver «Evidencia actual» en la Entrega M2). Precision 0.74 en test sigue confirmando que lo que el modelo marca como relacionado casi nunca es ruido.
 
 ### Ejemplos cualitativos
 
@@ -227,27 +230,28 @@ a mano después de cada corrida nueva del notebook, copiando desde
 reproducibilidad exacta, así que una corrida nueva puede dar
 puntajes distintos.
 
-| id | case_type | adversarial | similitud | candidato primero | referencia primero | delta | juez mitigado | acierto |
+| id | case_type | adversarial | recall@3 | candidato primero | referencia primero | delta | juez mitigado | acierto |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| M2-01 | estandar |  | 0.603 | 2 | 2 | 0 | 2 | ✅ |
-| M2-02 | estandar |  | 0.575 | 4 | 4 | 0 | 4 | ✅ |
-| M2-03 | estandar |  | 0.690 | 2 | 2 | 0 | 2 | ✅ |
-| M2-04 | estandar |  | 0.487 | 2 | 2 | 0 | 2 | ❌ |
-| M2-05 | estandar |  | 0.710 | 3 | 2 | 1 | 2.5 | ✅ |
-| M2-06 | estandar |  | 0.614 | 2 | 2 | 0 | 2 | ✅ |
-| M2-07 | estandar |  | 0.215 | 1 | 1 | 0 | 1 | ❌ |
-| M2-08 | estandar |  | 0.721 | 2 | 2 | 0 | 2 | ✅ |
-| M2-09 | dificil |  | 0.652 | 2 | 2 | 0 | 2 | ❌ |
-| M2-10 | dificil |  | 0.420 | 2 | 2 | 0 | 2 | ❌ |
-| M2-11 | premisa_falsa | ✅ | 0.224 | 1 | 1 | 0 | 1 | ❌ |
-| M2-12 | fuera_de_dominio | ✅ | 0.557 | 1 | 1 | 0 | 1 | ❌ |
-| M2-13 | seguridad_fraude | ✅ | 0.591 | 4 | 2 | 2 | 3 | ❌ |
+| M2-01 | estandar |  | 0.0 | 2 | 2 | 0 | 2 | ❌ |
+| M2-02 | estandar |  | 0.0 | 2 | 1 | 1 | 1.5 | ❌ |
+| M2-03 | estandar |  | 0.0 | 2 | 1 | 1 | 1.5 | ❌ |
+| M2-04 | estandar |  | 0.0 | 2 | 2 | 0 | 2 | ❌ |
+| M2-05 | estandar |  | 1.0 | 4 | 4 | 0 | 4 | ✅ |
+| M2-06 | estandar |  | 0.0 | 2 | 1 | 1 | 1.5 | ❌ |
+| M2-07 | estandar |  | 0.0 | 1 | 1 | 0 | 1 | ❌ |
+| M2-08 | estandar |  | 0.0 | 2 | 2 | 0 | 2 | ❌ |
+| M2-09 | dificil |  | 0.5 | 2 | 2 | 0 | 2 | ❌ |
+| M2-10 | dificil |  | 0.0 | 1 | 1 | 0 | 1 | ❌ |
+| M2-11 | premisa_falsa | ✅ | n/a | 2 | 2 | 0 | 2 | ❌ |
+| M2-12 | fuera_de_dominio | ✅ | n/a | 1 | 1 | 0 | 1 | ❌ |
+| M2-13 | seguridad_fraude | ✅ | 1.0 | 5 | 5 | 0 | 5 | ✅ |
 
-Resumen: 13 casos, sin indeterminados, similitud media 0.54, juez medio 2.04/5, **6/13 aciertos**.
-Latencia mediana 14.8 s por consulta (entre 10.2 y 20.0 s), medida solo sobre `sistema(pregunta)`.
-Sesgo de posición: 2/13 casos cambiaron de puntaje al invertir el orden (M2-05, delta 1; M2-13,
-delta 2), delta medio 0.23 sobre los 13 casos. Revisar los fallos y respuestas completas en `scorecard_baseline_detalle.csv`,
-especialmente los adversariales.
+Resumen: 13 casos, sin indeterminados, recall@3 medio 0.23 (sobre los 11 casos con norma esperada), juez medio 2.04/5,
+**2/13 aciertos**. Latencia mediana 9.6 s por consulta (entre 6.5 y 15.0 s), medida solo sobre `sistema(pregunta)`.
+Sesgo de posición: 3/13 casos cambiaron de puntaje al invertir el orden (M2-02, M2-03 y M2-06, delta 1 en los tres),
+delta medio 0.23 sobre los 13 casos. El cross-encoder rankea contra los 143 artículos y concentra el top-3 en artículos
+constitucionales genéricos (Art. 13, 25, 43, 53, 54); nunca trae CST Art. 239, 64, 57, 34 ni 62. Revisar los fallos y
+respuestas completas en `scorecard_baseline_detalle.csv`, especialmente los adversariales.
 
 ### Sesgo del juez y mitigación
 
@@ -281,6 +285,82 @@ lectura del scorecard.
 
 ## Entrega M3
 
+### Decisiones de evaluación
+
+Todos los sistemas (baseline de M1, RAG ingenuo, RAG avanzado y sistema final) se evalúan con el mismo eval set, la
+misma plantilla de respuesta, el mismo decoder y el mismo juez; solo cambia cómo se recuperan las tres referencias.
+
+**Plantilla de respuesta común.** El código arma la respuesta; el decoder solo escribe el resumen:
+
+```
+Referencias recuperadas:
+1. <cita>: <descripción tomada del corpus> (<url>)      (x3, armadas por código)
+Resumen: <dos o tres frases neutras de Qwen2.5-1.5B-Instruct>
+<aviso fijo: informativo, no es recomendación jurídica personalizada>
+```
+
+La descripción de cada referencia es el inicio del propio texto del artículo, sin notas editoriales, de máximo 400
+caracteres. El decoder no elige ni descarta referencias y no afirma que una norma aplica: resume lo que establecen y
+dice si no tratan el tema. Se decidió así porque, en una prueba exploratoria, Qwen2.5-1.5B no distingue de forma fiable
+cuáles referencias son pertinentes (ver Limitaciones). Evaluarlo como si lo hiciera mediría su debilidad, idéntica en
+todos los sistemas, y ocultaría las diferencias entre técnicas de recuperación.
+
+**Qué se mide (tres dimensiones).**
+
+| Dimensión | Cómo se calcula | Qué dice |
+|---|---|---|
+| 1. `recall_3` | Por código. Las normas esperadas se leen del encabezado de `expected` (lo que va antes de « — »); el valor es la fracción de ellas presente en las tres referencias. Vacío (n/a) en M2-11 y M2-12, que no tienen norma. | Si la recuperación trae la norma que resuelve el caso. |
+| 2. `juez_mitigado` | Claude Haiku con la rúbrica 2.0.0 (pertinencia de las referencias, fidelidad del resumen, reconocimiento de límites, sin recomendaciones personalizadas), en ambos órdenes candidato/referencia; el puntaje es el promedio. | Calidad global de lo que el sistema presenta. |
+| 3. `acierto_dominio` | Casos con norma: todas las normas esperadas están en el top-3 (M2-06 y M2-09 exigen dos). Premisa falsa y fuera de dominio: `juez_mitigado >= 4`. | Resultado binario por caso. |
+
+El acierto en los casos con norma depende solo de la recuperación. El juez no entra en esa decisión, así que el
+resultado no cambia con la opinión de un modelo externo; solo se usa en los casos de abstención y para la dimensión 2.
+
+### Evolución de los sistemas
+
+Mismos 13 casos, Colab gratuito con GPU T4, un solo juez (Claude Haiku) y un solo decoder (Qwen2.5-1.5B-Instruct).
+Fuente: los `scorecard_*.csv` de cada sistema.
+
+| Sistema | Aciertos | Recall@3 medio | Juez medio | Latencia mediana |
+|---|---|---|---|---|
+| Baseline de M1 (cross-encoder sobre el corpus completo) | 2/13 | 0.23 | 2.04 | 9.6 s |
+| RAG ingenuo (búsqueda densa MiniLM, top-3) | 1/13 | 0.09 | 1.77 | 5.3 s |
+| **RAG avanzado** (híbrida denso+BM25 con RRF → reranking con el cross-encoder de M1) | 2/13 | 0.18 | 2.23 | 6.6 s |
+
+El recall@3 medio se calcula sobre los 11 casos con norma esperada. El sistema avanzado exportado (`C2_hibrida_rerank`)
+se eligió antes de ver los resultados de la ablación, por combinar las dos técnicas de recuperación (búsqueda híbrida y
+reranking). Su aporte frente al baseline es nulo en aciertos: ambos 2/13.
+
+### Ablación del RAG avanzado
+
+Cinco sistemas con el mismo decoder, plantilla y juez; 20 candidatos antes de fusionar o reordenar, top-3 final.
+Fuente: `notebooks/rag/resultados/avanzado/ablacion_rag_avanzado.csv`.
+
+| Sistema | Aciertos | Recall@3 medio | Casos con la norma en el top-3 | Juez medio | Latencia mediana | Latencia de recuperación |
+|---|---|---|---|---|---|---|
+| A. Denso (equivale al ingenuo) | 1/13 | 0.09 | 1 | 1.89 | 5.6 s | 0.01 s |
+| B. Híbrida (denso + BM25, RRF) | **4/13** | **0.27** | 3 | 2.08 | 5.7 s | 0.02 s |
+| C1. Denso → reranking con el cross-encoder | 3/13 | 0.23 | 3 | 2.12 | 6.5 s | 0.72 s |
+| **C2. Híbrida → reranking con el cross-encoder** | 2/13 | 0.18 | 3 | 2.23 | 6.6 s | 0.78 s |
+| D. Multi-query (Qwen extrae 3 frases de términos jurídicos) + híbrida + reranking | 2/13 | 0.18 | 3 | 2.31 | 7.6 s | 1.95 s |
+
+**Lectura.** Las diferencias son de uno o dos casos sobre 13 y no son concluyentes; lo que sigue son observaciones,
+no resultados establecidos.
+
+- La búsqueda híbrida sola (B) obtiene más aciertos que cualquier sistema con reranking. BM25 aporta señal léxica que
+  la búsqueda densa no tiene: B trae la norma esperada en M2-01, M2-02 y M2-10, donde el ingenuo y los sistemas con
+  reranking fallan.
+- El reranking con el cross-encoder de M1 acierta en otros casos: C1, C2 y D traen Ley 361 Art. 26 en M2-13 y (C1) en
+  M2-05, que B no recupera. Los dos aportes son complementarios, y la fusión actual (RRF y luego reranking) conserva los
+  del cross-encoder y pierde los de BM25.
+- El multi-query no mejora a C2 y añade 1.2 s de recuperación. Los términos que genera Qwen son genéricos
+  («infracción a derecho laboral», «derecho al trabajo durante embarazo») y no acercan la norma esperada.
+- Ningún sistema recupera la norma esperada de M2-03, M2-04, M2-07 ni M2-08.
+- Parte de los aciertos de B, C1, C2 y D viene de M2-12 (fuera de dominio), donde el resumen declara que las referencias
+  no abordan la consulta y el juez da 4; el ingenuo, con otras referencias, recibe 1. En M2-11 (premisa falsa) ningún
+  sistema llega a 4. Estos aciertos dependen del resumen de Qwen y no de la recuperación.
+- El reranking suma cerca de 0.7 s de recuperación y el multi-query cerca de 1.2 s más; la latencia total incluye además la generación del resumen.
+
 ### Limitaciones del sistema
 
 - **El decoder no decide qué normas aplican.** Qwen2.5-1.5B-Instruct no está especializado en derecho laboral y no se le
@@ -297,11 +377,13 @@ lectura del scorecard.
   actual y en las 2 con ejemplos o pregunta por referencia. Se evalúa con el juez en M2-11 y M2-12.
 - **El acierto depende solo de la recuperación en los casos con norma.** La norma esperada se lee del encabezado de
   `expected`. Los casos con más de una norma (M2-06 y M2-09) exigen que todas estén en el top-3, y el acierto no reconoce
-  normas alternativas igualmente aplicables (por ejemplo, Ley 50 de 1990 Art. 35 en el caso de maternidad).
+  normas alternativas igualmente aplicables (por ejemplo, Ley 50 de 1990 Art. 35 en el caso de maternidad). Tampoco
+  reconoce el mismo contenido bajo otra cita: en M2-01 el RAG ingenuo trae la Ley 1822 de 2017 Art. 2, que reproduce el
+  texto reformado del CST Art. 239, y el caso cuenta como fallo aunque el juez le da 4/5.
 - **Muestra pequeña.** El eval set tiene 13 casos, 11 con norma esperada; diferencias de uno o dos casos entre sistemas no
   son conclusiones estadísticamente robustas.
-- **Los casos semilla provienen del dataset de M1.** Las consultas del eval set son las mismas del dataset con el que se
-  entrenó el cross-encoder y no se excluyeron de su entrenamiento, así que el recall@3 del baseline y de los sistemas que
-  usan el cross-encoder puede estar favorecido.
+- **Los casos semilla provienen del dataset de M1.** Las consultas del eval set coinciden con consultas del dataset del
+  cross-encoder y no se excluyeron de su entrenamiento, así que el recall@3 del baseline y de los sistemas que usan el
+  cross-encoder podría estar favorecido; aun así, el baseline recupera la norma esperada en pocos casos.
 - **Juez externo.** Claude Haiku se usa a través de la API de Anthropic (ver la sección del juez en la Entrega M2): depende
   de la API y puede variar entre corridas.
