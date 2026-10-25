@@ -9,3 +9,5 @@ data/diccionario_faltantes.csv
 
 *.pdf
 !data/SL2600-2025.pdf
+
+evaluar_ragas_canonica.py
