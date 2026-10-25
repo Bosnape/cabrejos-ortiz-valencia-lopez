@@ -12,6 +12,8 @@ Métricas calculadas sobre los 13 casos del eval set congelado (`notebooks/evalu
 | **RAG Avanzado** (C2: híbrida + rerank) | 0.2302 | **0.2438** | **0.7608** | **0.4038** |
 | **Sistema Final** (capa agéntica) | *Pendiente* | *Pendiente* | *Pendiente* | *Pendiente* |
 
+*Nota: Pendiente que se agregue lo de Miguel para evaluarse.*
+
 *Nota: El detalle caso a caso con cada una de las 13 consultas se encuentra en `notebooks/rag/resultados/ragas/ragas_m3.csv`.*
 
 ---
