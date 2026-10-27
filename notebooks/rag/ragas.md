@@ -8,8 +8,8 @@ Métricas calculadas sobre los 13 casos del eval set congelado (`notebooks/evalu
 
 | Sistema | Context Precision | Context Recall | Faithfulness | Answer Relevancy |
 | :--- | :---: | :---: | :---: | :---: |
-| **RAG Ingenuo** (denso MiniLM, top-3) | 0.3197 | 0.1862 | 0.6431 | 0.3400 |
-| **RAG Avanzado** (C2: híbrida + rerank) | 0.2302 | **0.2438** | **0.7608** | **0.4038** |
+| **RAG Ingenuo** (denso MiniLM, top-3) | 0.2305 | 0.2838 | 0.6669 | 0.3885 |
+| **RAG Avanzado** (C2: híbrida + rerank) | 0.1533 | 0.2192 | **0.7738** | **0.4500** |
 | **Sistema Final** (capa agéntica) | *Pendiente* | *Pendiente* | *Pendiente* | *Pendiente* |
 
 *Nota: Pendiente que se agregue lo de Miguel para evaluarse.*
@@ -30,7 +30,7 @@ Métricas calculadas sobre los 13 casos del eval set congelado (`notebooks/evalu
    Se tomó el campo `expected` de cada caso del eval set como referencia fáctica y sustantiva.
 
 4. **Juez Evaluador:**  
-   Se utilizó `claude-haiku-4-5` de forma directa y determinista con temperatura 0 y validación estricta de esquemas JSON, garantizando paridad con el juez del harness de M2.
+   Se utilizó `claude-haiku-4-5` vía la API de Anthropic con parseo JSON del texto de respuesta. Los fallos de la API o respuestas mal formadas se registran como `NaN` y se excluyen del promedio, en vez de contarse como 0.
 
 ---
 
@@ -39,13 +39,13 @@ Métricas calculadas sobre los 13 casos del eval set congelado (`notebooks/evalu
 ### 3.1. Separación de Fallas: Recuperación vs. Generación
 
 * **Diagnóstico de Recuperación (Retriever):**  
-  El `context_recall` promedio se ubica en 0.1862 para el RAG ingenuo y en 0.2438 para el RAG avanzado. En la gran mayoría de casos estándar (M2-02, M2-03, M2-04, M2-07, M2-08), los artículos que contienen la norma esperada (`expected`) nunca llegaron al top-3 de candidatos entregados al decoder. Esto demuestra empíricamente que la principal limitación del asistente jurídico reside en la **etapa de recuperación** (el retriever no logra asociar el relato fáctico del usuario con la norma sustantiva aplicable), y **no** en el generador.
+  El `context_recall` promedio se ubica en 0.2838 para el RAG ingenuo y en 0.2192 para el RAG avanzado. En la gran mayoría de casos estándar (M2-02, M2-03, M2-04, M2-07, M2-08), los artículos que contienen la norma esperada (`expected`) nunca llegaron al top-3 de candidatos entregados al decoder. Esto demuestra empíricamente que la principal limitación del asistente jurídico reside en la **etapa de recuperación** (el retriever no logra asociar el relato fáctico del usuario con la norma sustantiva aplicable), y **no** en el generador.
 
 * **Diagnóstico de Generación (Decoder):**  
-  La métrica de `faithfulness` aumenta significativamente en el RAG avanzado, alcanzando **0.7608** frente a 0.6431 del ingenuo. Qwen2.5-1.5B demuestra alta disciplina para resumir exclusivamente lo que dicen los fragmentos entregados, evitando inventar normas ajenas. Su bajo acierto en la evaluación de negocio de M2 se debe a que opera sobre contextos que carecen de la norma pertinente, y no a alucinación activa.
+  La métrica de `faithfulness` aumenta en el RAG avanzado, alcanzando **0.7738** frente a 0.6669 del ingenuo. Qwen2.5-1.5B demuestra alta disciplina para resumir exclusivamente lo que dicen los fragmentos entregados, evitando inventar normas ajenas. Su bajo acierto en la evaluación de negocio de M2 se debe a que opera sobre contextos que carecen de la norma pertinente, y no a alucinación activa.
 
 * **Relevancia Temática (`answer_relevancy`):**  
-  La relevancia de respuesta sube de 0.3400 a 0.4038. Al recibir artículos con mayor coherencia temática general gracias a la fusión híbrida y el cross-encoder, los resúmenes abordan con mayor propiedad los términos laborales de la consulta.
+  La relevancia de respuesta sube de 0.3885 a 0.4500. Al recibir artículos con mayor coherencia temática general gracias a la fusión híbrida y el cross-encoder, los resúmenes abordan con mayor propiedad los términos laborales de la consulta.
 
 ### 3.2. Contraste entre `recall_3` del Harness y `context_recall` de RAGAS
 
@@ -55,14 +55,14 @@ Métricas calculadas sobre los 13 casos del eval set congelado (`notebooks/evalu
 ### 3.3. Análisis de Casos Especiales y de Abstención
 
 * **M2-12 (Fuera de dominio — accidente de tránsito):**  
-  En el RAG avanzado, el decoder reconoce explícitamente que las normas recuperadas no tratan accidentes de tránsito, logrando un puntaje de relevancia de **0.92** en su función de abstención.
+  El decoder produce una abstención explícita («las referencias no abordan accidentes de tránsito»), lo que le otorga una `answer_relevancy` de **0.75** en el RAG avanzado. Sin embargo, el juez Claude Haiku asignó `faithfulness = 0.00` a este caso a pesar de que el prompt le instruye a tratar las abstenciones como fieles (score 1.0). Este comportamiento del juez se documenta como una limitación conocida del evaluador: la instrucción de abstención no siempre es respetada cuando el resumen no cita ningún hecho concreto respaldado por el contexto.
 * **M2-11 (Premisa falsa — auxilio ficticio por CST 850):**  
-  El sistema trae artículos generales y el resumen no logra desmentir la premisa falsa del usuario, arrojando baja relevancia (0.25). Esto ratifica el hallazgo documentado en el proyecto: la válvula de escape no es una decisión gobernada por el sistema, sino una conducta dependiente de las capacidades del decoder.
+  El sistema trae artículos generales y el resumen no logra desmentir la premisa falsa del usuario. En el RAG avanzado obtiene `answer_relevancy = 1.00`, lo que sugiere que el juez interpreta la respuesta como pertinente al tema laboral aunque no corrija el error del usuario. Esto ratifica el hallazgo documentado: la válvula de escape no es una conducta gobernada por el sistema, sino dependiente de las capacidades del decoder.
 
 ---
 
 ## 4. Estado de los Entregables
 
-1. Cuaderno ejecutable: `notebooks/rag/ragas_m3.ipynb` (probado end-to-end, reproducible en Google Colab con GPU T4).
+1. Cuaderno ejecutable: `notebooks/rag/ragas_m3.ipynb` (reproducible en Google Colab con GPU T4; ejecutar con `RECALCULAR = True`).
 2. Tabla de métricas exportada: `notebooks/rag/resultados/ragas/ragas_m3.csv`.
 3. Integración futura: El cuaderno contiene la función modular `evaluar_sistema_ragas` lista para incorporar el archivo `scorecard_sistema_final_detalle.csv` de Miguel una vez sea generado.
