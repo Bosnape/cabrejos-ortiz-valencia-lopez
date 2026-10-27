@@ -11,4 +11,4 @@ data/diccionario_faltantes.csv
 !data/SL2600-2025.pdf
 
 evaluar_ragas_canonica.py
-diagnostico_casos.py
+diagnostico_casos.py
