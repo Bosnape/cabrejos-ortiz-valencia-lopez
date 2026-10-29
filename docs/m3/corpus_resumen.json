@@ -1,0 +1,20 @@
+{
+  "normas_origen": 41,
+  "urls_origen_distintas": 41,
+  "documentos_articulo": 143,
+  "chunks_previstos_por_indexacion_actual": 143,
+  "unidad_de_chunk": "Una fila/articulo completo, sin ventanas ni solapamiento entre ventanas",
+  "sentencias_entrenamiento": 138,
+  "pares_entrenamiento_en_csv": 561,
+  "registros_fuentes": 41,
+  "articulos_por_dominio": {
+    "cancilleria.gov.co": 1,
+    "www.alcaldiabogota.gov.co": 71,
+    "www.funcionpublica.gov.co": 71
+  },
+  "sha256_texto_utf8_lf": {
+    "data/diccionario_articulos.csv": "5aab975407dbd94a8e42e47777dedc4349a4502b4a18d40a9c5ca1ccabd627e1",
+    "data/fuentes_normas.csv": "0a680235b63d7e0b79beb5bb95c173f1d5c6b9571729f9c1cdb57a79a4094a00",
+    "data/dataset_cross_encoder.csv": "f743906262773a2bc72d0adb3566151fd61484bf1f72658f17845f10cbc813e2"
+  }
+}

@@ -1,4 +1,4 @@
-El harness evalúa si el asistente responde consultas laborales con normas pertinentes, fieles a sus fuentes y con límites claros, sin dar recomendaciones jurídicas personalizadas.
+Lawten ayuda a abogados junior en Colombia a encontrar normas para consultas de derecho laboral individual. Una buena respuesta muestra los artículos pertinentes con sus fuentes, los resume fielmente y reconoce cuando la información disponible no resuelve la consulta, sin dar recomendaciones jurídicas personalizadas.
 
 # Asistente de Consulta de Derecho Laboral Individual
 
@@ -18,6 +18,15 @@ Asistente de apoyo para abogados junior colombianos: dado un texto de consulta, 
 | `notebooks/dataset/` | Recolección y pre-procesamiento del corpus: `ds_parte1_redal`, `ds_parte2_corte_const`, `ds_parte3_research_list`, `ds_parte4_sl_casacion`, `ds_diccionario_articulos` |
 | `data/` | Dataset de entrenamiento e insumos: `dataset_cross_encoder.csv`, `diccionario_articulos.csv`, `fuentes_normas.csv`, `descartados.csv`, `candidatas_research.csv` |
 | `docs/` | Definición del proyecto (`STAI_Plantilla_Proyecto.md`) |
+| `scripts/resumen_corpus.py` | Conteo reproducible del corpus y del dataset, sin dependencias externas ni modificación de datos |
+| `scripts/verificar_m3.py` | Inspección estática de notebooks, semillas, archivos requeridos y salidas guardadas; no ejecuta modelos |
+| [Informe de reproducibilidad de M3](docs/m3/REPRODUCIBILIDAD.md) | Evidencia local, estado de Colab y pendientes por responsable |
+| [Checklist de M3](M3_CHECKLIST.md) | Lista de la asignación, responsables y evidencia de cada requisito |
+
+**Entregables pendientes de integración al índice:** el agente de Miguel (`notebooks/rag/agente_herramientas.ipynb`
+y `notebooks/rag/resultados/final/`) y RAGAS de Martín (`notebooks/rag/ragas_m3.ipynb`
+y `notebooks/rag/resultados/ragas/`). RAGAS está propuesto en el [PR #1](https://github.com/Bosnape/cabrejos-ortiz-valencia-lopez/pull/1);
+estos archivos todavía no forman parte de esta rama. Se agregarán al índice principal al integrarlos.
 
 ## Reporte M1 — Fine-tuning con LoRA (BETO)
 
@@ -162,7 +171,7 @@ Dos fases: **recolección** (sentencias → pares pregunta-norma, en `notebooks/
 
 ## Reproducibilidad y equipo
 
-`notebooks/fine-tuning/fine_tuning_asistente_legal.ipynb` corre de punta a punta en Colab con seed 42 fija y outputs preservados. `REF` de datos apunta a `main`. Las claves API solo se usan en la recolección del dataset (`notebooks/dataset/`).
+`notebooks/fine-tuning/fine_tuning_asistente_legal.ipynb` corre de punta a punta en Colab con seed 42 fija y outputs preservados. `REF` de datos apunta a `main`. La recolección del dataset y los jueces de evaluación usan la API de Anthropic; para los jueces se configura `ANTHROPIC_API_KEY` mediante Secrets de Colab o `.env`, según el notebook.
 
 **Equipo — "Lawten"**: Pablo Cabrejos, Miguel Ángel Ortiz, Martín Valencia, Samuel López.
 
@@ -285,6 +294,85 @@ lectura del scorecard.
 
 ## Entrega M3
 
+### Estado de integración
+
+El núcleo de Pablo ya contiene baseline, RAG ingenuo y RAG avanzado con sus resultados versionados.
+Esta preparación documental de Samuel agrega el inventario del corpus, el diagrama y los controles de entrega.
+La entrega completa sigue pendiente del sistema final de Miguel, de RAGAS sobre ese sistema y del cierre del reporte por Pablo.
+Las pruebas nuevas en Colab limpio siguen pendientes; la revisión estática no demuestra una ejecución completa.
+El detalle y los responsables están en [M3_CHECKLIST.md](M3_CHECKLIST.md) y en el
+[informe de reproducibilidad](docs/m3/REPRODUCIBILIDAD.md).
+
+### Corpus e indexación: inventario verificable
+
+Los conteos se obtienen con `python scripts/resumen_corpus.py` desde la raíz del repositorio:
+
+| Medida | Cantidad | Unidad |
+|---|---:|---|
+| Normas de origen | 41 | Fuentes distintas del diccionario |
+| Documentos de recuperación | 143 | Artículos completos |
+| Chunks previstos | 143 | Un artículo por chunk |
+| Sentencias de entrenamiento | 138 | Identificadores de sentencia distintos |
+| Pares de entrenamiento | 561 | Filas del dataset antes de adecuación |
+
+El corpus de recuperación es `data/diccionario_articulos.csv`: cada fila es un artículo y los notebooks indexan
+su `texto_completo` como una unidad, sin ventanas ni solapamiento entre ventanas. Los 143 chunks son el conteo
+previsto por esa implementación; el script no reconstruye Chroma ni comprueba su colección en ejecución.
+Las 138 sentencias y los 561 pares pertenecen al entrenamiento de M1, no son documentos adicionales del índice RAG.
+
+Las 41 URLs distintas del diccionario apuntan a Función Pública, Régimen Legal de la Alcaldía de Bogotá y Cancillería;
+las URLs y notas de recolección están en `data/fuentes_normas.csv`.
+Según la documentación del equipo, las normas y sentencias provienen de fuentes públicas del Estado colombiano
+y son de dominio público; los pares extraídos y negativos son material propio del equipo.
+Esta sección registra esas condiciones declaradas, sin hacer una nueva verificación de licencias o vigencia normativa.
+Ver [data/README.md](data/README.md).
+
+La salida de `python scripts/resumen_corpus.py --json` está guardada en
+[corpus_resumen.json](docs/m3/corpus_resumen.json), con los dominios y las huellas SHA-256 de los tres CSV leídos.
+
+### Pipeline del documento a la respuesta
+
+Las flechas continuas muestran el RAG avanzado C2 implementado. Las discontinuas reservan la capa agéntica:
+la herramienta concreta y su conexión definitiva las documentará Miguel cuando entregue su notebook.
+
+```mermaid
+flowchart TD
+    F["Fuentes normativas oficiales"] --> D["Diccionario: 143 artículos completos"]
+    D --> C["Un artículo por chunk, sin ventanas solapadas"]
+    C --> E["Embeddings MiniLM multilingüe"]
+    E --> V["Chroma: índice denso"]
+    C --> B["Índice léxico BM25"]
+    Q["Consulta del usuario"] --> H["Búsqueda híbrida: densa + BM25"]
+    V --> H
+    B --> H
+    H --> R["Fusión RRF: 20 candidatos"]
+    R --> CE["Reranking: BETO + LoRA de M1"]
+    CE --> T["Top-3 referencias con texto y URL"]
+    T --> P["Descripciones de hasta 400 caracteres"]
+    P --> G["Qwen2.5-1.5B: solo genera el resumen"]
+    Q --> G
+    T --> A["Código: referencias + resumen + aviso fijo"]
+    G --> A
+    A --> O["Respuesta informativa con fuentes y límites"]
+    Q -.-> AG["Capa agéntica de Miguel: pendiente"]
+    AG -.-> HT["Herramienta e integración: pendientes"]
+```
+
+El baseline puntúa el corpus completo con BETO + LoRA; el ingenuo toma directamente el top-3 denso.
+Ambos conservan la plantilla y el decoder de C2. La ablación también prueba multi-query; no forma parte
+del C2 exportado. La evaluación usa el harness común y, al integrar el trabajo de Martín, RAGAS.
+
+### Tres decisiones justificadas — pendiente de Pablo
+
+La configuración se describe tal como está en los notebooks. Las justificaciones específicas del corpus
+las completa Pablo; esta sección no propone cambiarla.
+
+| Decisión | Configuración actual | Justificación de Pablo |
+|---|---|---|
+| Tamaño y solapamiento de chunks | Un artículo completo por chunk, sin ventanas ni solapamiento entre ventanas | Pendiente |
+| Modelo de embeddings | `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` | Pendiente |
+| Top-k | Tres referencias finales; 20 candidatos antes del reranking de C2 | Pendiente |
+
 ### Decisiones de evaluación
 
 Todos los sistemas (baseline de M1, RAG ingenuo, RAG avanzado y sistema final) se evalúan con el mismo eval set, la
@@ -326,6 +414,7 @@ Fuente: los `scorecard_*.csv` de cada sistema.
 | Baseline de M1 (cross-encoder sobre el corpus completo) | 2/13 | 0.23 | 2.04 | 9.6 s |
 | RAG ingenuo (búsqueda densa MiniLM, top-3) | 1/13 | 0.09 | 1.77 | 5.3 s |
 | **RAG avanzado** (híbrida denso+BM25 con RRF → reranking con el cross-encoder de M1) | 2/13 | 0.18 | 2.23 | 6.6 s |
+| Sistema final con herramienta (Miguel) | Pendiente | Pendiente | Pendiente | Pendiente |
 
 El recall@3 medio se calcula sobre los 11 casos con norma esperada. El sistema avanzado exportado (`C2_hibrida_rerank`)
 se eligió antes de ver los resultados de la ablación, por combinar las dos técnicas de recuperación (búsqueda híbrida y
@@ -387,3 +476,59 @@ no resultados establecidos.
   cross-encoder podría estar favorecido; aun así, el baseline recupera la norma esperada en pocos casos.
 - **Juez externo.** Claude Haiku se usa a través de la API de Anthropic (ver la sección del juez en la Entrega M2): depende
   de la API y puede variar entre corridas.
+
+### Tabla RAGAS — pendiente de integración de Martín
+
+Las cuatro métricas se copiarán de las filas `PROMEDIO` de `notebooks/rag/resultados/ragas/ragas_m3.csv`
+cuando se integre ese entregable. No se completan con cifras de memoria ni con valores de otra corrida.
+La implementación y el juez se documentarán con la versión efectivamente integrada; la asignación permite
+tanto la implementación del laboratorio con juez propio como la biblioteca `ragas`.
+
+| Sistema | Faithfulness | Answer relevancy | Context precision | Context recall |
+|---|---|---|---|---|
+| RAG ingenuo | Pendiente de integrar CSV | Pendiente de integrar CSV | Pendiente de integrar CSV | Pendiente de integrar CSV |
+| RAG avanzado C2 | Pendiente de integrar CSV | Pendiente de integrar CSV | Pendiente de integrar CSV | Pendiente de integrar CSV |
+| Sistema final con herramienta | Pendiente de Miguel y Martín | Pendiente de Miguel y Martín | Pendiente de Miguel y Martín | Pendiente de Miguel y Martín |
+
+Martín evalúa solo el `Resumen:` generado por Qwen y utiliza los textos completos del diccionario
+como contextos, aunque el decoder recibe descripciones recortadas. La tabla final debe explicitar esta decisión.
+El baseline de M1 ya está cubierto por el harness y no se añade a RAGAS por defecto.
+
+### Lectura honesta final — pendiente de Pablo
+
+La ablación y las limitaciones anteriores se conservan como insumos. Pablo completa esta lectura
+con los resultados del sistema final y el diagnóstico de Martín:
+
+| Pregunta de la asignación | Contenido pendiente |
+|---|---|
+| ¿Qué movió qué y en qué consultas? | Comparación final de técnicas y agente, usando los CSV y casos concretos |
+| ¿Cuánto costó y vale la pena para el usuario? | Latencia mediana del sistema final y costo añadido de la herramienta |
+| ¿Qué falla queda: recuperación o generación? | Cruzar el harness con las cuatro métricas y los casos de RAGAS |
+| ¿Qué ocurrió fuera del corpus? | Revisar M2-11 y M2-12 en el sistema final y describir si el resumen reconoció sus límites |
+
+### Reproducibilidad y cierre de M3
+
+El [informe de reproducibilidad](docs/m3/REPRODUCIBILIDAD.md) registra lo revisado y lo aún no ejecutado.
+Los scripts de inventario y revisión estática usan solo la biblioteca estándar de Python y no consumen API.
+`requirements.txt` se conserva único en la raíz y sin versiones, según el plan del equipo.
+Los bootstraps de los notebooks tienen sus propias versiones; cualquier discrepancia se registra para el responsable.
+Las ejecuciones completas de evaluación sí requieren la clave de Anthropic para el juez actual.
+El alcance de la excepción autorizada frente al requisito de una alternativa sin API debe confirmarse con Pablo.
+
+La revisión final debe hacerse sobre los notebooks integrados, en sesiones nuevas de Colab con GPU T4,
+guardando salidas, versiones del entorno y errores. No se marca un notebook como reproducible por conservar
+salidas antiguas o por pasar la inspección de sintaxis.
+
+## Uso de IA
+
+Esta declaración trata de las herramientas usadas para construir la entrega, no de los modelos que ejecuta Lawten.
+El registro se completa con la declaración personal de cada integrante antes de entregar.
+
+| Integrante | Herramienta y uso declarado | Revisión humana declarada |
+|---|---|---|
+| Samuel López | ChatGPT mediante Codex para analizar la asignación y el reparto, preparar documentación, diagrama, scripts de conteo y verificación, y revisar resultados de esos controles locales | Pendiente de Samuel: revisar el diff y confirmar o completar su revisión personal antes de la entrega |
+| Pablo Cabrejos | Pendiente de su declaración: herramienta, partes y alcance | Pendiente de su declaración |
+| Miguel Ángel Ortiz | Pendiente de su declaración: herramienta, partes y alcance | Pendiente de su declaración |
+| Martín Valencia | Pendiente de su declaración: herramienta, partes y alcance | Pendiente de su declaración |
+
+La validación automática descrita en el informe no sustituye la revisión humana de cada responsable.
