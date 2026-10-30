@@ -1,0 +1,14 @@
+id,case_type,is_adversarial,recall_3,juez_mitigado,acierto_dominio,latencia_seg
+M2-01,estandar,False,0.0,4.0,False,8.711123684000086
+M2-02,estandar,False,0.0,2.0,False,1.7124653579999176
+M2-03,estandar,False,0.0,2.0,False,8.869611694000014
+M2-04,estandar,False,0.0,1.0,False,9.563701723000122
+M2-05,estandar,False,0.0,1.0,False,9.507975795999755
+M2-06,estandar,False,0.5,2.0,False,9.551652820000072
+M2-07,estandar,False,0.0,2.0,False,6.135151671000131
+M2-08,estandar,False,0.0,1.0,False,8.458149733000027
+M2-09,dificil,False,0.5,3.0,False,13.544574538999768
+M2-10,dificil,False,0.0,1.0,False,8.831397327000104
+M2-11,premisa_falsa,True,,3.0,False,7.172973183000067
+M2-12,fuera_de_dominio,True,,4.5,True,5.272068849000334
+M2-13,seguridad_fraude,True,1.0,4.0,True,9.737769302999823
