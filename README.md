@@ -173,6 +173,40 @@ El harness mide si un sistema recupera las normas laborales que resuelven cada c
 
 El notebook es la fuente principal de verdad. Las funciones del harness (plantilla de respuesta, las tres dimensiones y el juez) son las mismas, copiadas tal cual, en los notebooks del baseline de M1, del RAG ingenuo y del RAG avanzado, y se espera lo mismo del sistema final. Cada sistema recupera tres referencias; el código arma la lista con la descripción de cada una y el decoder (Qwen2.5-1.5B-Instruct) solo escribe un resumen neutro, sin decidir qué normas aplican. El baseline de M1 recupera con el cross-encoder BETO + adaptador LoRA versionado. Qwen **no es el juez**: el juez es Claude Haiku (`claude-haiku-4-5`).
 
+### Origen del eval set
+
+El eval set (13 casos) se construye a partir del propio corpus del proyecto y no con ejercicios aparte. Los 10 casos
+estándar y difíciles (M2-01 a M2-10) se redactan a partir de consultas del dataset de M1 (sentencias con su artículo
+asociado), y los 3 adversariales (premisa falsa, fuera de dominio y seguridad/fraude) se redactan para este propósito. La
+decisión se apoya en dos razones:
+
+- **Conseguir datos fue difícil.** Reunir sentencias etiquetadas con la norma que las resuelve requirió el proceso de
+  recolección descrito en la sección Dataset, y consultas independientes con su norma verificada no se podían obtener en el
+  tiempo del proyecto.
+- **El cross-encoder rinde de forma modesta.** En ese contexto el eval set cumple una función de verificación mínima:
+  comprobar si el sistema recupera normas que, en principio, ya debería conocer. Un eval set más difícil o ajeno al dataset
+  no cambiaría el diagnóstico de fondo.
+
+La consecuencia es que parte de estos casos pudo haber estado en el conjunto de entrenamiento del fine-tuning (no se
+excluyeron, y el split exacto no se reconstruyó). Por eso los resultados se leen como una verificación de lo que el modelo
+ya debería saber, no como una medida de generalización a consultas nuevas; si fallan aquí, el fallo es informativo.
+
+### Justificación de las métricas
+
+El producto debe identificar qué norma y qué artículo aplican a una consulta, mostrarlos sin inventar y reconocer cuándo no
+puede resolver. Cada dimensión mide una parte de eso:
+
+| Métrica | Por qué se usa |
+|---|---|
+| `recall_3` de la norma esperada (por código) | Es la medida directa de la tarea: si la norma que resuelve el caso llega a las tres referencias que ve el usuario. Es determinista, no depende de ningún modelo y coincide con el recall@3 con que se evaluó el cross-encoder en M1. |
+| Juez (Claude Haiku, rúbrica 2.0.0) | Captura lo que el recall no ve: la pertinencia de las otras referencias, la fidelidad del resumen, el reconocimiento de límites y la ausencia de recomendaciones personalizadas. Reconoce, por ejemplo, el mismo contenido bajo otra cita. Se evalúa en ambos órdenes para mitigar el sesgo de posición. |
+| `acierto_dominio` | Resultado binario por caso. En los casos con norma depende solo de la recuperación (todas las normas esperadas en el top-3); en los de abstención depende del juez (>= 4), porque no hay una norma que recuperar. |
+| Latencia por consulta | Mide el costo de cada técnica, necesario para decidir si una mejora justifica su precio. |
+
+No se usa la similitud de embeddings entre respuesta y referencia, que premiaba respuestas parecidas en tono aunque no
+tuvieran la norma correcta, ni se deja que el decoder califique la pertinencia de las referencias (ver Entrega M3, «Decisiones
+de evaluación»).
+
 ### Ejecución local y en Google Colab
 
 Una sola ruta de ejecución, sin flags ni modos alternativos: **Run all** siempre llama al sistema
@@ -285,6 +319,29 @@ lectura del scorecard.
 
 ## Entrega M3
 
+### Decisiones de diseño justificadas
+
+**1. Tamaño y solapamiento del chunk.** La unidad de recuperación es el artículo completo (143 unidades), sin partirlo en
+fragmentos y, por tanto, sin solapamiento. Cada artículo ya es una unidad jurídica autocontenida y citable (la cita es
+`fuente + Art. n`); partirlo obligaría a reagrupar fragmentos para citarlo y a decidir cómo repartir sus incisos. El
+solapamiento sirve para que una idea cortada sobreviva en el fragmento vecino, y sin cortes no hace falta. El decoder recibe
+la descripción de cada referencia (el inicio del artículo, máximo 400 caracteres), suficiente para identificar el tema.
+Costo: los artículos son largos (mediana de unos 1000 caracteres, percentil 90 de unos 3400 y máximo de unos 13 000). El modelo
+de embeddings procesa como máximo 128 tokens, y 97 de los 143 artículos lo superan, de modo que su embedding representa solo
+el comienzo; BM25 usa el texto completo y el cross-encoder lee hasta 512 tokens (26 artículos lo superan). No se probó un
+chunking más fino; queda como mejora posible.
+
+**2. Modelo de embeddings.** `paraphrase-multilingual-MiniLM-L12-v2`, el mismo de los laboratorios del curso (sesiones 5 a
+8) y del harness. Es multilingüe, incluye español y es lo bastante pequeño para correr en el Colab gratuito. No se comparó con
+otros modelos de embeddings: el foco de M3 son las técnicas de recuperación (híbrida, reranking, multi-query), no el
+modelo, y el reranking con el cross-encoder compensa en parte la calidad del primer filtro. Su límite de 128 tokens es la
+principal limitación conocida.
+
+**3. Top-k.** k = 3, tomado del laboratorio de RAG del curso y coherente con M1, donde el ranking se evaluó con recall@3 y
+precision@3. Son además las tres referencias que ve el usuario y las que recibe el decoder. No se hizo un barrido de k: con 13
+casos no habría resolución para distinguir valores. Los sistemas con reranking parten de 20 candidatos por buscador antes de
+quedarse con el top-3, y la fusión RRF usa k = 60, el valor habitual.
+
 ### Decisiones de evaluación
 
 Todos los sistemas (baseline de M1, RAG ingenuo, RAG avanzado y sistema final) se evalúan con el mismo eval set, la
@@ -338,7 +395,7 @@ Fuente: `notebooks/rag/resultados/avanzado/ablacion_rag_avanzado.csv`.
 
 | Sistema | Aciertos | Recall@3 medio | Casos con la norma en el top-3 | Juez medio | Latencia mediana | Latencia de recuperación |
 |---|---|---|---|---|---|---|
-| A. Denso (equivale al ingenuo) | 1/13 | 0.09 | 1 | 1.89 | 5.6 s | 0.01 s |
+| A. Denso (equivale al ingenuo) | 1/13 | 0.09 | 1 | 1.88 | 5.6 s | 0.01 s |
 | B. Híbrida (denso + BM25, RRF) | **4/13** | **0.27** | 3 | 2.08 | 5.7 s | 0.02 s |
 | C1. Denso → reranking con el cross-encoder | 3/13 | 0.23 | 3 | 2.12 | 6.5 s | 0.72 s |
 | **C2. Híbrida → reranking con el cross-encoder** | 2/13 | 0.18 | 3 | 2.23 | 6.6 s | 0.78 s |
@@ -353,8 +410,9 @@ no resultados establecidos.
 - El reranking con el cross-encoder de M1 acierta en otros casos: C1, C2 y D traen Ley 361 Art. 26 en M2-13 y (C1) en
   M2-05, que B no recupera. Los dos aportes son complementarios, y la fusión actual (RRF y luego reranking) conserva los
   del cross-encoder y pierde los de BM25.
-- El multi-query no mejora a C2 y añade 1.2 s de recuperación. Los términos que genera Qwen son genéricos
-  («infracción a derecho laboral», «derecho al trabajo durante embarazo») y no acercan la norma esperada.
+- El multi-query no mejora a C2 y añade 1.2 s de recuperación. Varias de las frases que genera Qwen
+  son demasiado genéricas («contrato de trabajo», «derecho al trabajo») y otras se desvían del tema («Acción social» en
+  M2-02, «Contrato colectivo» en M2-10); su recall medio es igual al de C2 (0.18).
 - Ningún sistema recupera la norma esperada de M2-03, M2-04, M2-07 ni M2-08.
 - Parte de los aciertos de B, C1, C2 y D viene de M2-12 (fuera de dominio), donde el resumen declara que las referencias
   no abordan la consulta y el juez da 4; el ingenuo, con otras referencias, recibe 1. En M2-11 (premisa falsa) ningún
@@ -387,3 +445,17 @@ no resultados establecidos.
   cross-encoder podría estar favorecido; aun así, el baseline recupera la norma esperada en pocos casos.
 - **Juez externo.** Claude Haiku se usa a través de la API de Anthropic (ver la sección del juez en la Entrega M2): depende
   de la API y puede variar entre corridas.
+
+## Uso de IA
+
+Buena parte del código del proyecto parte de los notebooks y laboratorios del curso (el harness de las sesiones 5 y 6, el RAG
+ingenuo de la sesión 7, el RAG avanzado de la sesión 8 y la plantilla de fine-tuning), que se tomaron como base. Esa base se
+editó y adaptó a las necesidades del proyecto con el apoyo de asistentes de IA (Claude de Anthropic, ChatGPT de OpenAI, entre
+otros). Los asistentes actuaron como programadores: escribieron y modificaron el código de los notebooks, apoyaron la revisión y reparación
+del corpus y ayudaron en la redacción de los análisis y de la documentación. Las decisiones de cada etapa (qué construir, qué
+técnicas probar, cómo evaluar, qué corregir y qué conservar) las tomó el equipo, que dirigió el proyecto, revisó los
+resultados y aprobó los cambios. Los resultados reportados provienen de ejecuciones reales en Google Colab y las cifras de este
+README se copian de los archivos CSV generados.
+
+Además, dos modelos forman parte del sistema y no son herramientas de redacción: Qwen2.5-1.5B-Instruct como decoder que
+resume, y Claude Haiku como juez en la evaluación.
