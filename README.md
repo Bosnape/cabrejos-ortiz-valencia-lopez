@@ -362,6 +362,15 @@ El baseline puntúa el corpus completo con BETO + LoRA; el ingenuo toma directam
 ruta híbrida con reranking (C2) sin el agente, y el sistema final añade la decisión del agente al inicio. Todos
 comparten la plantilla y el decoder. La ablación también prueba multi-query, que no forma parte del C2 exportado.
 
+### Orden de ejecución
+
+Todos los notebooks de M3 se corren en Google Colab con GPU T4: el primero de cada uno clona el repositorio y revisa los
+archivos que necesita, y los resultados ya calculados están versionados en `notebooks/rag/resultados/`. Para regenerarlos,
+el orden es `notebooks/evaluation/harness_de_evaluacion.ipynb` (baseline), `notebooks/rag/rag_ingenuo.ipynb`,
+`notebooks/rag/rag_avanzado.ipynb`, `notebooks/rag/agente_herramienta.ipynb` (ejecuta celdas de `rag_avanzado.ipynb`, así que
+necesita el repositorio completo) y `notebooks/rag/ragas_m3.ipynb` (lee los `_detalle.csv` de los tres sistemas anteriores).
+Todos requieren `ANTHROPIC_API_KEY` para el juez, salvo el cálculo de recall@3 y acierto con norma.
+
 ### Decisiones de diseño justificadas
 
 **1. Tamaño y solapamiento del chunk.** La unidad de recuperación es el artículo completo (143 unidades), sin partirlo en
@@ -488,26 +497,29 @@ como contexto el texto completo de cada artículo recuperado, no la descripción
 
 | Sistema | Context precision | Context recall | Faithfulness | Answer relevancy |
 |---|---|---|---|---|
-| RAG ingenuo | 0.19 | 0.25 | 0.65 | 0.36 |
-| RAG avanzado (C2) | 0.16 | 0.26 | 0.79 | 0.39 |
-| Sistema final | 0.17 | 0.22 | 0.64 | 0.46 |
+| RAG ingenuo | 0.20 | 0.27 | 0.69 | 0.40 |
+| RAG avanzado (C2) | 0.17 | 0.24 | 0.78 | 0.46 |
+| Sistema final | 0.17 | 0.22 | 0.76 | 0.40 |
 
-En el sistema final, M2-02 y M2-07 no tienen referencias (el agente no buscó): la context precision queda vacía y el juez
-da faithfulness 0.0 y answer relevancy 0.75 a un texto fijo frente a un contexto vacío. Esos valores no miden la generación
-y distorsionan el promedio. Con los 11 casos en que los tres sistemas recuperaron artículos:
+En M2-02 y M2-07 el agente eligió no buscar y no hay artículos, así que para el sistema final la context precision,
+la faithfulness y la answer relevancy se promedian sobre 11 casos (no tiene sentido puntuar un texto fijo contra un
+contexto vacío); su context recall sí cuenta los 13 y vale 0 en esos dos. Con los 11 casos en que los tres sistemas
+recuperaron artículos:
 
 | Sistema (11 casos) | Context precision | Context recall | Faithfulness | Answer relevancy |
 |---|---|---|---|---|
-| RAG ingenuo | 0.23 | 0.30 | 0.73 | 0.37 |
-| RAG avanzado (C2) | 0.19 | 0.29 | 0.77 | 0.37 |
-| Sistema final | 0.17 | 0.27 | 0.76 | 0.40 |
+| RAG ingenuo | 0.24 | 0.32 | 0.77 | 0.43 |
+| RAG avanzado (C2) | 0.20 | 0.25 | 0.77 | 0.46 |
+| Sistema final | 0.17 | 0.26 | 0.76 | 0.40 |
 
-El juez no es estable: el context recall del ingenuo dio 0.19, 0.28, 0.24 y 0.25 en cuatro corridas con las mismas
-entradas. Las diferencias entre sistemas están dentro de ese ruido y no permiten ordenarlos. Lo que sí es claro es que el
-context recall es bajo en todos (cerca de 0.25) y que la faithfulness es moderada o alta. RAGAS evalúa por contenido
-y no por la cita exacta: en M2-01 el harness da recall 0 al sistema que trae la Ley 1822 de 2017 Art. 2, que reproduce
-el CST Art. 239, y RAGAS le da context recall 1.0. En M2-12 el avanzado y el sistema final se abstienen bien, pero el
-juez les da faithfulness 0.0 aunque el prompt indica que una abstención es fiel; es una limitación del juez.
+El juez no es estable: el context recall del ingenuo dio 0.19, 0.28, 0.24, 0.25 y 0.27 en cinco corridas con las mismas
+entradas, y la faithfulness del avanzado entre 0.77 y 0.79. Las diferencias entre sistemas de ~0.1 o menos están dentro
+de ese ruido y no permiten ordenarlos. La context precision del ingenuo salió algo más alta que la del avanzado en todas
+las corridas (por ~0.04), una diferencia pequeña. Lo claro es que el context recall es bajo en todos (cerca de 0.25) y
+que la faithfulness es moderada o alta. RAGAS evalúa por contenido y no por la cita exacta: en M2-01 el harness da
+recall 0 al sistema que trae la Ley 1822 de 2017 Art. 2, que reproduce el CST Art. 239, y RAGAS le da context recall 1.0.
+En M2-12 el avanzado y el sistema final se abstienen bien, pero el juez les da faithfulness 0.0 aunque el prompt indica
+que una abstención es fiel; es una limitación del juez.
 
 ### Lectura final
 
