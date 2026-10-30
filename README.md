@@ -556,7 +556,7 @@ casos laborales.
   cross-encoder y no se excluyeron de su entrenamiento, así que el recall@3 del baseline y de los sistemas que usan el
   cross-encoder podría estar favorecido; aun así, el baseline recupera la norma esperada en pocos casos.
 - **Juez externo y no determinista.** Claude Haiku se usa a través de la API de Anthropic (ver la sección del juez en la Entrega M2): depende
-  de la API y su puntaje varía cerca de 0.1 entre corridas con las mismas entradas, tanto en el juez de la rúbrica como en RAGAS. Las diferencias de ese tamaño son ruido.
+  de la API y su puntaje varía cerca de 0.1 entre corridas con las mismas entradas, tanto en el juez de la rúbrica como en RAGAS. Las diferencias de ese tamaño son ruido. El uso de la API fue aprobado por el profesor. Sin clave siguen funcionando el recall@3 y el acierto en los casos con norma, que se calculan por código; solo el juez (dimensión 2, abstenciones y RAGAS) la necesita, y los scorecards ya calculados están versionados en `notebooks/rag/resultados/`.
 
 ## Uso de IA
 
