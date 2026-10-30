@@ -1,8 +1,6 @@
-El harness evalúa si el asistente responde consultas laborales con normas pertinentes, fieles a sus fuentes y con límites claros, sin dar recomendaciones jurídicas personalizadas.
-
 # Asistente de Consulta de Derecho Laboral Individual
 
-Asistente de apoyo para abogados junior colombianos: dado un texto de consulta, **identifica qué norma y qué artículo le aplican**. El sistema informa y verifica — nunca recomienda acciones sobre un caso concreto.
+Asistente de apoyo para abogados junior colombianos: dado un texto de consulta, **identifica qué norma y qué artículo le aplican**. El sistema informa y verifica — nunca recomienda acciones sobre un caso concreto. Una buena respuesta muestra los artículos pertinentes con sus fuentes, los resume fielmente y reconoce cuando la información disponible no resuelve la consulta.
 
 ## Índice de archivos principales
 
@@ -12,7 +10,10 @@ Asistente de apoyo para abogados junior colombianos: dado un texto de consulta, 
 | `notebooks/evaluation/harness_de_evaluacion.ipynb` | **Entrega M2**: harness de evaluación (recall@3 de la norma esperada, LLM-as-a-judge, aciertos de dominio) y scorecard del sistema real de M1 |
 | `notebooks/evaluation/eval_set.json`, `notebooks/evaluation/rubrica.json` | Eval set de 13 casos y rúbrica 2.0.0 que leen todos los notebooks de evaluación |
 | `notebooks/rag/rag_ingenuo.ipynb`, `notebooks/rag/rag_avanzado.ipynb` | **Entrega M3**: RAG ingenuo (búsqueda densa) y RAG avanzado (híbrida, reranking con el cross-encoder de M1, multi-query), evaluados con el mismo harness |
-| `notebooks/rag/resultados/` | Scorecards (`.csv` y `_detalle.csv`) del RAG ingenuo y del RAG avanzado, con la ablación de técnicas |
+| `notebooks/rag/agente_herramienta.ipynb` | **Entrega M3**: agente con herramienta de recuperación (decisión de un paso sobre C2), comparado con C2 en la misma sesión |
+| `notebooks/rag/ragas_m3.ipynb` | **Entrega M3**: evaluación RAGAS (context precision, context recall, faithfulness, answer relevancy) del RAG ingenuo, el avanzado y el sistema final |
+| `notebooks/rag/resultados/` | Scorecards (`.csv` y `_detalle.csv`) del RAG ingenuo, del avanzado (con la ablación de técnicas), del sistema final (`final/`) y de RAGAS (`ragas/`) |
+| `scripts/resumen_corpus.py` | Conteo reproducible del corpus y del dataset (solo biblioteca estándar) |
 | `s04_lora_adapter/` | Adaptador LoRA entrenado (pesos, no el backbone de BETO) usado por el harness de M2 |
 | `notebooks/decisiones_base_encoder.ipynb` | Justificación de familia/modelo base (tokenización de dominio) |
 | `notebooks/dataset/` | Recolección y pre-procesamiento del corpus: `ds_parte1_redal`, `ds_parte2_corte_const`, `ds_parte3_research_list`, `ds_parte4_sl_casacion`, `ds_diccionario_articulos` |
@@ -171,7 +172,7 @@ Dos fases: **recolección** (sentencias → pares pregunta-norma, en `notebooks/
 
 El harness mide si un sistema recupera las normas laborales que resuelven cada caso y si lo que presenta es fiel a ellas, reconoce sus límites y no ofrece recomendaciones jurídicas personalizadas. Una buena respuesta tiene entre sus tres referencias la norma aplicable, las describe con fidelidad y no inventa normas.
 
-El notebook es la fuente principal de verdad. Las funciones del harness (plantilla de respuesta, las tres dimensiones y el juez) son las mismas, copiadas tal cual, en los notebooks del baseline de M1, del RAG ingenuo y del RAG avanzado, y se espera lo mismo del sistema final. Cada sistema recupera tres referencias; el código arma la lista con la descripción de cada una y el decoder (Qwen2.5-1.5B-Instruct) solo escribe un resumen neutro, sin decidir qué normas aplican. El baseline de M1 recupera con el cross-encoder BETO + adaptador LoRA versionado. Qwen **no es el juez**: el juez es Claude Haiku (`claude-haiku-4-5`).
+El notebook es la fuente principal de verdad. Las funciones del harness (plantilla de respuesta, las tres dimensiones y el juez) son las mismas, copiadas tal cual, en los notebooks del baseline de M1, del RAG ingenuo y del RAG avanzado, y el sistema final (agente más C2) usa las mismas funciones. Cada sistema recupera tres referencias; el código arma la lista con la descripción de cada una y el decoder (Qwen2.5-1.5B-Instruct) solo escribe un resumen neutro, sin decidir qué normas aplican. El baseline de M1 recupera con el cross-encoder BETO + adaptador LoRA versionado. Qwen **no es el juez**: el juez es Claude Haiku (`claude-haiku-4-5`).
 
 ### Origen del eval set
 
@@ -319,6 +320,48 @@ lectura del scorecard.
 
 ## Entrega M3
 
+### Corpus e indexación
+
+Los conteos se obtienen con `python scripts/resumen_corpus.py` desde la raíz del repositorio:
+
+| Medida | Cantidad | Unidad |
+|---|---:|---|
+| Normas de origen | 41 | Fuentes distintas del diccionario |
+| Documentos de recuperación | 143 | Artículos completos |
+| Sentencias de entrenamiento | 138 | Identificadores de sentencia distintos |
+| Pares de entrenamiento | 561 | Filas del dataset de M1 |
+
+El corpus de recuperación es `data/diccionario_articulos.csv`: cada fila es un artículo y los notebooks indexan su
+`texto_completo` como una unidad. Las 138 sentencias y los 561 pares pertenecen al entrenamiento de M1 y no son
+documentos del índice. Las normas provienen de Función Pública, el Régimen Legal de Bogotá y la Cancillería
+(`data/fuentes_normas.csv`), fuentes públicas del Estado colombiano.
+
+### Pipeline del documento a la respuesta
+
+```mermaid
+flowchart TD
+    F["Fuentes normativas oficiales"] --> D["Diccionario: 143 artículos completos"]
+    D --> E["Embeddings MiniLM multilingüe"]
+    E --> V["Chroma: índice denso"]
+    D --> B["Índice léxico BM25"]
+    Q["Consulta del usuario"] --> AG{"Agente: ¿usar la herramienta?"}
+    AG -- "no_tool" --> N["Respuesta fija sin referencias"]
+    AG -- "buscar_articulos_laborales" --> H["Búsqueda híbrida: densa + BM25"]
+    V --> H
+    B --> H
+    H --> R["Fusión RRF: 20 candidatos"]
+    R --> CE["Reranking: BETO + LoRA de M1"]
+    CE --> T["Top-3 referencias"]
+    T --> G["Qwen2.5-1.5B: solo escribe el resumen"]
+    T --> A["Código: referencias + resumen + aviso fijo"]
+    G --> A
+    A --> O["Respuesta informativa con fuentes y límites"]
+```
+
+El baseline puntúa el corpus completo con BETO + LoRA; el ingenuo toma directamente el top-3 denso; el avanzado es la
+ruta híbrida con reranking (C2) sin el agente, y el sistema final añade la decisión del agente al inicio. Todos
+comparten la plantilla y el decoder. La ablación también prueba multi-query, que no forma parte del C2 exportado.
+
 ### Decisiones de diseño justificadas
 
 **1. Tamaño y solapamiento del chunk.** La unidad de recuperación es el artículo completo (143 unidades), sin partirlo en
@@ -383,10 +426,28 @@ Fuente: los `scorecard_*.csv` de cada sistema.
 | Baseline de M1 (cross-encoder sobre el corpus completo) | 2/13 | 0.23 | 2.04 | 9.6 s |
 | RAG ingenuo (búsqueda densa MiniLM, top-3) | 1/13 | 0.09 | 1.77 | 5.3 s |
 | **RAG avanzado** (híbrida denso+BM25 con RRF → reranking con el cross-encoder de M1) | 2/13 | 0.18 | 2.23 | 6.6 s |
+| **Sistema final** (agente de un paso + C2) | 2/13 | 0.18 | 2.35 | 8.8 s |
 
 El recall@3 medio se calcula sobre los 11 casos con norma esperada. El sistema avanzado exportado (`C2_hibrida_rerank`)
 se eligió antes de ver los resultados de la ablación, por combinar las dos técnicas de recuperación (búsqueda híbrida y
 reranking). Su aporte frente al baseline es nulo en aciertos: ambos 2/13.
+
+El sistema final se midió junto con un control de C2 en la misma sesión (misma GPU, modelos y juez): C2 obtuvo 2/13,
+recall@3 0.18, juez 2.35 y 6.2 s; el agente, lo mismo salvo 8.8 s. Por eso el juez de C2 aparece como 2.23 en la
+corrida de la ablación y 2.35 en el control: con las mismas referencias el juez varía cerca de 0.1 entre corridas, y
+las diferencias de ese tamaño no son comparables.
+
+### Agente con herramienta
+
+El agente decide en un solo paso, con un modelo (Qwen2.5-1.5B) que propone un JSON validado con Pydantic, si la consulta
+requiere la herramienta `buscar_articulos_laborales` o se responde sin consultar el corpus. La búsqueda usa siempre la
+pregunta original completa; la consulta que sugiere el modelo solo se registra. Si el JSON es inválido se reintenta una
+vez y después se busca por defecto. Cuando decide no buscar, la respuesta es un texto fijo sin referencias. Eso hace
+que el agente no cambie qué se recupera: solo decide si se recupera.
+
+- **En el eval set oficial no aporta.** Mismos aciertos, recall y juez que C2, con 2.7 s más de latencia mediana (+43 %), que es el costo de la decisión.
+- **Decidió mal los tres casos donde la decisión importaba.** Eligió no buscar en M2-02 y M2-07, que son laborales, y respondió con el texto de «fuera del alcance»; y buscó en M2-12, el único fuera de dominio. Su acierto en M2-12 viene del resumen de Qwen, no de la decisión.
+- **Diagnóstico aparte con 20 consultas** (10 laborales, 10 ajenas): 18/20 correctas, con especificidad 1.0 y sensibilidad 0.8 (dos laborales sin búsqueda). Es optimista: los ejemplos del prompt y varias consultas del conjunto comparten tema, y el prompt se ajustó mirando ese conjunto.
 
 ### Ablación del RAG avanzado
 
@@ -419,6 +480,57 @@ no resultados establecidos.
   sistema llega a 4. Estos aciertos dependen del resumen de Qwen y no de la recuperación.
 - El reranking suma cerca de 0.7 s de recuperación y el multi-query cerca de 1.2 s más; la latencia total incluye además la generación del resumen.
 
+### Evaluación con RAGAS
+
+Implementación propia con Claude Haiku como juez (`notebooks/rag/ragas_m3.ipynb`). Evalúa solo el `Resumen:` de Qwen y usa
+como contexto el texto completo de cada artículo recuperado, no la descripción recortada que ve el decoder. Fuente:
+`notebooks/rag/resultados/ragas/ragas_m3.csv`.
+
+| Sistema | Context precision | Context recall | Faithfulness | Answer relevancy |
+|---|---|---|---|---|
+| RAG ingenuo | 0.19 | 0.25 | 0.65 | 0.36 |
+| RAG avanzado (C2) | 0.16 | 0.26 | 0.79 | 0.39 |
+| Sistema final | 0.17 | 0.22 | 0.64 | 0.46 |
+
+En el sistema final, M2-02 y M2-07 no tienen referencias (el agente no buscó): la context precision queda vacía y el juez
+da faithfulness 0.0 y answer relevancy 0.75 a un texto fijo frente a un contexto vacío. Esos valores no miden la generación
+y distorsionan el promedio. Con los 11 casos en que los tres sistemas recuperaron artículos:
+
+| Sistema (11 casos) | Context precision | Context recall | Faithfulness | Answer relevancy |
+|---|---|---|---|---|
+| RAG ingenuo | 0.23 | 0.30 | 0.73 | 0.37 |
+| RAG avanzado (C2) | 0.19 | 0.29 | 0.77 | 0.37 |
+| Sistema final | 0.17 | 0.27 | 0.76 | 0.40 |
+
+El juez no es estable: el context recall del ingenuo dio 0.19, 0.28, 0.24 y 0.25 en cuatro corridas con las mismas
+entradas. Las diferencias entre sistemas están dentro de ese ruido y no permiten ordenarlos. Lo que sí es claro es que el
+context recall es bajo en todos (cerca de 0.25) y que la faithfulness es moderada o alta. RAGAS evalúa por contenido
+y no por la cita exacta: en M2-01 el harness da recall 0 al sistema que trae la Ley 1822 de 2017 Art. 2, que reproduce
+el CST Art. 239, y RAGAS le da context recall 1.0. En M2-12 el avanzado y el sistema final se abstienen bien, pero el
+juez les da faithfulness 0.0 aunque el prompt indica que una abstención es fiel; es una limitación del juez.
+
+### Lectura final
+
+**Qué movió qué.** Ninguna técnica supera con claridad al baseline de M1: C2 empata en aciertos (2/13), baja el recall
+medio de 0.23 a 0.18, sube el juez de 2.04 a 2.23 y recupera en 6.6 s frente a 9.6 s, porque no puntúa el corpus completo.
+La búsqueda densa sola (ingenuo) es la peor: 1/13. La híbrida sin reranking (B) es la mejor de la ablación, con 4/13 y
+recall 0.27, porque BM25 recupera normas que el denso no ve; el reranking recupera otras, y la combinación actual (RRF y
+luego reranking) conserva las del cross-encoder y pierde las de BM25. Elegimos C2 para el avanzado antes de ver los
+resultados por combinar las dos técnicas; B queda como mejor sistema de la ablación.
+
+**Cuánto costó.** El reranking suma cerca de 0.7 s de recuperación, el multi-query 1.2 s más y el agente 2.7 s de latencia
+mediana. Ninguno de los tres se pagó con una mejora: la única ganancia de calidad (juez 2.04 → 2.23 con C2) está en el rango
+de ruido del juez.
+
+**Qué falla.** La recuperación. Ningún sistema trae la norma esperada de M2-03, M2-04, M2-07 ni M2-08, y el context
+recall de RAGAS es bajo en los tres sistemas. El decoder resume con fidelidad razonable lo que recibe, así que el cuello
+de botella no es la generación sino que las tres referencias no contienen la norma.
+
+**Fuera del corpus.** Ningún sistema decide no responder: siempre se devuelven tres referencias. En M2-12 (accidente de
+tránsito) el resumen reconoce que las referencias no tratan el tema y el juez da 4 o más; en M2-11 (premisa falsa) el
+resumen no corrige la premisa y ningún sistema llega a 4. El agente no resolvió esto: buscó en M2-12 y no buscó en dos
+casos laborales.
+
 ### Limitaciones del sistema
 
 - **El decoder no decide qué normas aplican.** Qwen2.5-1.5B-Instruct no está especializado en derecho laboral y no se le
@@ -443,8 +555,8 @@ no resultados establecidos.
 - **Los casos semilla provienen del dataset de M1.** Las consultas del eval set coinciden con consultas del dataset del
   cross-encoder y no se excluyeron de su entrenamiento, así que el recall@3 del baseline y de los sistemas que usan el
   cross-encoder podría estar favorecido; aun así, el baseline recupera la norma esperada en pocos casos.
-- **Juez externo.** Claude Haiku se usa a través de la API de Anthropic (ver la sección del juez en la Entrega M2): depende
-  de la API y puede variar entre corridas.
+- **Juez externo y no determinista.** Claude Haiku se usa a través de la API de Anthropic (ver la sección del juez en la Entrega M2): depende
+  de la API y su puntaje varía cerca de 0.1 entre corridas con las mismas entradas, tanto en el juez de la rúbrica como en RAGAS. Las diferencias de ese tamaño son ruido.
 
 ## Uso de IA
 
