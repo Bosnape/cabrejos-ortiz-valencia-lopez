@@ -168,7 +168,7 @@ Dos fases: **recolección** (sentencias → pares pregunta-norma, en `notebooks/
 **Equipo — "Lawten"**: Pablo Cabrejos, Miguel Ángel Ortiz, Martín Valencia, Samuel López.
 
 
-## Entrega M2 
+## Entrega M2
 
 El harness mide si un sistema recupera las normas laborales que resuelven cada caso y si lo que presenta es fiel a ellas, reconoce sus límites y no ofrece recomendaciones jurídicas personalizadas. Una buena respuesta tiene entre sus tres referencias la norma aplicable, las describe con fidelidad y no inventa normas.
 
@@ -365,12 +365,12 @@ comparten la plantilla y el decoder. La ablación también prueba multi-query, q
 
 ### Orden de ejecución
 
-Todos los notebooks de M3 se corren en Google Colab con GPU T4: el primero de cada uno clona el repositorio y revisa los
+Todos los notebooks se corren en Google Colab con GPU T4: la primera celda de cada uno clona el repositorio y revisa los
 archivos que necesita, y los resultados ya calculados están versionados en `notebooks/rag/resultados/`. Para regenerarlos,
 el orden es `notebooks/evaluation/harness_de_evaluacion.ipynb` (baseline), `notebooks/rag/rag_ingenuo.ipynb`,
 `notebooks/rag/rag_avanzado.ipynb`, `notebooks/rag/agente_herramienta.ipynb` (ejecuta celdas de `rag_avanzado.ipynb`, así que
 necesita el repositorio completo) y `notebooks/rag/ragas_m3.ipynb` (lee los `_detalle.csv` de los tres sistemas anteriores).
-Todos requieren `ANTHROPIC_API_KEY` para el juez, salvo el cálculo de recall@3 y acierto con norma.
+El juez necesita `ANTHROPIC_API_KEY` (ver Limitaciones).
 
 ### Decisiones de diseño justificadas
 
@@ -431,7 +431,7 @@ resultado no cambia con la opinión de un modelo externo; solo se usa en los cas
 Mismos 13 casos, Colab gratuito con GPU T4, un solo juez (Claude Haiku) y un solo decoder (Qwen2.5-1.5B-Instruct).
 Fuente: los `scorecard_*.csv` de cada sistema.
 
-| Sistema | Aciertos | Recall@3 medio | Juez medio | Latencia mediana |
+| Sistema | Aciertos de dominio (dim. 3) | Recall@3 medio (dim. 1) | Juez medio (dim. 2) | Latencia mediana |
 |---|---|---|---|---|
 | Baseline de M1 (cross-encoder sobre el corpus completo) | 2/13 | 0.23 | 2.04 | 9.6 s |
 | RAG ingenuo (búsqueda densa MiniLM, top-3) | 1/13 | 0.09 | 1.77 | 5.3 s |
@@ -567,17 +567,17 @@ luego reranking) conserva las del cross-encoder y pierde las de BM25. Elegimos C
 resultados por combinar las dos técnicas; B queda como mejor sistema de la ablación.
 
 **Cuánto costó.** El reranking suma cerca de 0.7 s de recuperación, el multi-query 1.2 s más y el agente 2.7 s de latencia
-mediana. Ninguno de los tres se pagó con una mejora: la única ganancia de calidad (juez 2.04 → 2.23 con C2) está en el rango
-de ruido del juez.
+mediana. Ninguno de los tres se pagó con una mejora: la única ganancia de calidad (juez 2.04 → 2.23 con C2) es pequeña y cercana al
+ruido del juez (~0.1).
 
 **Qué falla.** La recuperación. Ningún sistema trae la norma esperada de M2-03, M2-04, M2-07 ni M2-08, y el context
 recall de RAGAS es bajo en los tres sistemas. El decoder resume con fidelidad razonable lo que recibe, así que el cuello
 de botella no es la generación sino que las tres referencias no contienen la norma.
 
-**Fuera del corpus.** Ningún sistema decide no responder: siempre se devuelven tres referencias. En M2-12 (accidente de
+**Fuera del corpus.** Salvo cuando el agente decide no buscar, el sistema siempre devuelve tres referencias y no puede abstenerse. En M2-12 (accidente de
 tránsito) el resumen reconoce que las referencias no tratan el tema y el juez da 4 o más; en M2-11 (premisa falsa) el
 resumen no corrige la premisa y ningún sistema llega a 4. El agente no resolvió esto: buscó en M2-12 y no buscó en dos
-casos laborales.
+casos laborales, así que la abstención efectiva sigue dependiendo del resumen de Qwen.
 
 ### Limitaciones del sistema
 
@@ -589,8 +589,8 @@ casos laborales.
   preguntando referencia por referencia subió a 7 de 11 con precisión 0.32, marcando las tres referencias en 4 casos. Lo que
   se evalúa, entonces, es la calidad de la recuperación (recall@3 de la norma esperada) y la fidelidad y los límites de lo
   que el sistema presenta (juez).
-- **La válvula de escape no es una decisión del sistema.** El sistema siempre devuelve tres referencias, también para las
-  consultas de premisa falsa o fuera de dominio. Que el resumen reconozca que no resuelven la consulta depende del decoder,
+- **La válvula de escape no es una decisión del sistema.** Salvo cuando el agente decide no buscar (y en el eval set lo hizo en los casos
+  equivocados), el sistema devuelve siempre tres referencias, también para las consultas de premisa falsa o fuera de dominio. Que el resumen reconozca que no resuelven la consulta depende del decoder,
   que no es fiable para esto: en la prueba exploratoria declaró "ninguna" en 1 de 2 consultas fuera del corpus con el prompt
   actual y en las 2 con ejemplos o pregunta por referencia. Se evalúa con el juez en M2-11 y M2-12.
 - **El acierto depende solo de la recuperación en los casos con norma.** La norma esperada se lee del encabezado de
