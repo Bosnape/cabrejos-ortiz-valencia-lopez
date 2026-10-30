@@ -499,6 +499,13 @@ no resultados establecidos.
   son demasiado genéricas («contrato de trabajo», «derecho al trabajo») y otras se desvían del tema («Acción social» en
   M2-02, «Contrato colectivo» en M2-10); su recall medio es igual al de C2 (0.18).
 - Ningún sistema recupera la norma esperada de M2-03, M2-04, M2-07 ni M2-08.
+- La ventaja de B depende de lo estricta que sea la regla de acierto, que en M2-06 y M2-09 exige las dos normas esperadas.
+  Si bastara con que llegara una de las dos, B, C1, C2 y D empatarían en 4/13, porque el reranking trae una de las dos
+  normas en esos casos y B ninguna.
+- B no se exporta como RAG avanzado porque es una sola técnica y la asignación pide al menos dos; además, elegirlo después
+  de ver estos resultados sería escoger con el mismo eval set con el que se evalúa, y con 13 casos la diferencia con C2
+  son dos aciertos. Queda como el punto de partida más claro para mejorar: una fusión que conserve los aciertos de BM25
+  al reordenar, o la búsqueda híbrida con multi-query sin reranking, que no se probó.
 - Parte de los aciertos de B, C1, C2 y D viene de M2-12 (fuera de dominio), donde el resumen declara que las referencias
   no abordan la consulta y el juez da 4; el ingenuo, con otras referencias, recibe 1. En M2-11 (premisa falsa) ningún
   sistema llega a 4. Estos aciertos dependen del resumen de Qwen y no de la recuperación.
