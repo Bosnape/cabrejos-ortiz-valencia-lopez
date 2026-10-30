@@ -521,6 +521,27 @@ recall 0 al sistema que trae la Ley 1822 de 2017 Art. 2, que reproduce el CST Ar
 En M2-12 el avanzado y el sistema final se abstienen bien, pero el juez les da faithfulness 0.0 aunque el prompt indica
 que una abstención es fiel; es una limitación del juez.
 
+### Semillas y reproducibilidad
+
+Todos los notebooks de M3 fijan la semilla 42 (Python, NumPy y Torch) y el decoder usa decodificación voraz, sin
+muestreo, así que la recuperación y el resumen se repiten entre corridas. Lo que no se puede fijar es el juez: Claude
+Haiku, a través de la API, no es determinista y su puntaje cambia entre corridas (cerca de 0.1 en el juez de la
+rúbrica y en RAGAS). Por eso cada scorecard guarda modelos, versión de la rúbrica y semilla, y los resultados reportados
+son los de las corridas versionadas en `notebooks/rag/resultados/`. Las versiones de las bibliotecas se fijan en el
+primer bloque de cada notebook.
+
+### Por qué los resultados son bajos
+
+El mejor sistema acierta 4 de 13 casos y ninguno pasa de un recall@3 medio de 0.27, así que el RAG sigue siendo pobre. Lo
+que muestran los datos, sin que se hayan probado como causas:
+- Las consultas están redactadas como relatos de hechos, y los artículos como normas abstractas; la similitud entre ambos es baja.
+- El modelo de embeddings recorta cada artículo a sus primeros 128 tokens y 97 de los 143 artículos son más largos (ver las decisiones de diseño).
+- Un mismo contenido aparece en varias normas (por ejemplo la Ley 1822 de 2017 reproduce el CST Art. 239), y el acierto exige la cita exacta.
+- Ningún sistema recupera M2-03, M2-04, M2-07 ni M2-08, así que la mejora de las técnicas se ve en pocos casos.
+- Con 13 casos, un acierto más o menos mueve el resultado de forma notable.
+Mejorar la recuperación (chunks más cortos, otro modelo de embeddings, consultas reformuladas con apoyo del corpus) es el
+trabajo pendiente más claro; el agente y el decoder no lo resuelven.
+
 ### Lectura final
 
 **Qué movió qué.** Ninguna técnica supera con claridad al baseline de M1: C2 empata en aciertos (2/13), baja el recall
