@@ -328,6 +328,7 @@ Los conteos se obtienen con `python scripts/resumen_corpus.py` desde la raíz de
 |---|---:|---|
 | Normas de origen | 41 | Fuentes distintas del diccionario |
 | Documentos de recuperación | 143 | Artículos completos |
+| Chunks indexados | 143 | Un artículo por chunk (sin partirlo) |
 | Sentencias de entrenamiento | 138 | Identificadores de sentencia distintos |
 | Pares de entrenamiento | 561 | Filas del dataset de M1 |
 
@@ -457,6 +458,20 @@ que el agente no cambie qué se recupera: solo decide si se recupera.
 - **En el eval set oficial no aporta.** Mismos aciertos, recall y juez que C2, con 2.7 s más de latencia mediana (+43 %), que es el costo de la decisión.
 - **Decidió mal los tres casos donde la decisión importaba.** Eligió no buscar en M2-02 y M2-07, que son laborales, y respondió con el texto de «fuera del alcance»; y buscó en M2-12, el único fuera de dominio. Su acierto en M2-12 viene del resumen de Qwen, no de la decisión.
 - **Diagnóstico aparte con 20 consultas** (10 laborales, 10 ajenas): 18/20 correctas, con especificidad 1.0 y sensibilidad 0.8 (dos laborales sin búsqueda). Es optimista: los ejemplos del prompt y varias consultas del conjunto comparten tema, y el prompt se ajustó mirando ese conjunto.
+
+### Diagnóstico del RAG ingenuo y técnicas elegidas
+
+El ingenuo (búsqueda densa, top-3) trae la norma esperada en 1 de los 11 casos con norma (M2-10). En los otros 10 la norma
+no llega al top-3; los 2 casos restantes (M2-11 y M2-12) no tienen norma y dependen de que el resumen reconozca sus
+límites. De ahí salen las técnicas, cada una dirigida a un tipo de falla:
+
+| Técnica | Falla que ataca | Qué se observó |
+|---|---|---|
+| Búsqueda híbrida (BM25 + denso, RRF) | Términos exactos de la norma que la búsqueda densa no ve en consultas redactadas como relatos | Recupera la norma en M2-01 y M2-02, donde el ingenuo falla |
+| Reranking con el cross-encoder de M1 | La norma está entre los candidatos pero no queda en los tres primeros | Recupera Ley 361 Art. 26 en M2-13 (y M2-05 en C1), donde el híbrido sin reranking falla |
+| Multi-query con términos jurídicos | La distancia entre el vocabulario del relato y el de la norma | No mejora a C2: varias frases generadas son genéricas o se desvían |
+
+La elección se hizo antes de ver estos resultados; el detalle caso por caso está en `notebooks/rag/rag_avanzado.ipynb`.
 
 ### Ablación del RAG avanzado
 
