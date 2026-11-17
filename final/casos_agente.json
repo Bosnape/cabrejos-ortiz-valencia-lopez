@@ -1,0 +1,122 @@
+[
+ {
+  "id": "D01",
+  "categoria": "laboral",
+  "pregunta": "Me despidieron estando embarazada y no hubo autorización del Ministerio. ¿Qué normas debo revisar?",
+  "accion_esperada": "buscar_articulos_laborales"
+ },
+ {
+  "id": "D02",
+  "categoria": "laboral",
+  "pregunta": "Mi empleador quiere obligarme a renunciar porque tengo una discapacidad. ¿Qué protección existe?",
+  "accion_esperada": "buscar_articulos_laborales"
+ },
+ {
+  "id": "D03",
+  "categoria": "laboral",
+  "pregunta": "No me pagaron las horas extras de los últimos tres meses. ¿Qué derechos tengo?",
+  "accion_esperada": "buscar_articulos_laborales"
+ },
+ {
+  "id": "D04",
+  "categoria": "laboral",
+  "pregunta": "Tengo contrato a término fijo y no me avisaron de su terminación. ¿Qué reglas aplican?",
+  "accion_esperada": "buscar_articulos_laborales"
+ },
+ {
+  "id": "D05",
+  "categoria": "laboral",
+  "pregunta": "La empresa no consignó mis cesantías. ¿Qué puedo reclamar?",
+  "accion_esperada": "buscar_articulos_laborales"
+ },
+ {
+  "id": "D06",
+  "categoria": "laboral",
+  "pregunta": "Tuve un accidente de tránsito mientras hacía entregas ordenadas por mi jefe. ¿Puede ser accidente laboral?",
+  "accion_esperada": "buscar_articulos_laborales"
+ },
+ {
+  "id": "D07",
+  "categoria": "laboral",
+  "pregunta": "Mi empleador me exige firmar un contrato de arrendamiento de vivienda como condición para conservar el empleo. ¿Es legal?",
+  "accion_esperada": "buscar_articulos_laborales"
+ },
+ {
+  "id": "D08",
+  "categoria": "laboral",
+  "pregunta": "Trabajo desde casa y no me reconocen los descansos ni la jornada. ¿Qué normas aplican?",
+  "accion_esperada": "buscar_articulos_laborales"
+ },
+ {
+  "id": "D09",
+  "categoria": "laboral",
+  "pregunta": "Me incapacitaron por una enfermedad y la empresa amenaza con despedirme. ¿Qué protección tengo?",
+  "accion_esperada": "buscar_articulos_laborales"
+ },
+ {
+  "id": "D10",
+  "categoria": "laboral",
+  "pregunta": "Mi padre falleció y necesito saber si mi empleador debe concederme licencia por luto.",
+  "accion_esperada": "buscar_articulos_laborales"
+ },
+ {
+  "id": "D11",
+  "categoria": "no_laboral",
+  "pregunta": "Mis hermanos discuten cómo repartir la herencia de mi padre. ¿Qué debe hacer la familia?",
+  "accion_esperada": "no_tool"
+ },
+ {
+  "id": "D12",
+  "categoria": "no_laboral",
+  "pregunta": "Choqué mi carro particular un domingo mientras paseaba. ¿Cómo reclamo al seguro?",
+  "accion_esperada": "no_tool"
+ },
+ {
+  "id": "D13",
+  "categoria": "no_laboral",
+  "pregunta": "Mi arrendador quiere subir el canon de mi apartamento. ¿Cuánto puede aumentar?",
+  "accion_esperada": "no_tool"
+ },
+ {
+  "id": "D14",
+  "categoria": "no_laboral",
+  "pregunta": "Quiero tramitar el divorcio y definir la custodia de mis hijos. ¿Qué hago?",
+  "accion_esperada": "no_tool"
+ },
+ {
+  "id": "D15",
+  "categoria": "no_laboral",
+  "pregunta": "Compré un celular defectuoso. ¿Cómo solicito la garantía al vendedor?",
+  "accion_esperada": "no_tool"
+ },
+ {
+  "id": "D16",
+  "categoria": "no_laboral",
+  "pregunta": "Mi vecino construyó un muro dentro de mi terreno. ¿Qué puedo hacer?",
+  "accion_esperada": "no_tool"
+ },
+ {
+  "id": "D17",
+  "categoria": "no_laboral",
+  "pregunta": "Necesito pagar el impuesto predial de una casa que heredé. ¿Cómo se liquida?",
+  "accion_esperada": "no_tool"
+ },
+ {
+  "id": "D18",
+  "categoria": "no_laboral",
+  "pregunta": "Quiero constituir una sociedad para invertir en inmuebles. ¿Qué documentos necesito?",
+  "accion_esperada": "no_tool"
+ },
+ {
+  "id": "D19",
+  "categoria": "no_laboral",
+  "pregunta": "Mi vehículo recibió una fotomulta mientras iba de vacaciones. ¿Cómo la impugno?",
+  "accion_esperada": "no_tool"
+ },
+ {
+  "id": "D20",
+  "categoria": "no_laboral",
+  "pregunta": "Mi familia quiere vender una vivienda y repartir el dinero entre los herederos. ¿Qué trámite corresponde?",
+  "accion_esperada": "no_tool"
+ }
+]
