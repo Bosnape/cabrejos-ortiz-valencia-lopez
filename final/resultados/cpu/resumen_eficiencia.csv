@@ -1,0 +1,6 @@
+version,aciertos,casos,recall_3_medio,juez_medio,adversariales_acertados,adversariales,agente_correctas_de_20,laborales_sin_buscar,decisiones_invalidas,p50_s,p95_s,n_latencias,agente_s_mediana,recuperacion_s_mediana,decoder_s_mediana,decoder_mb,cross_encoder_mb,rss_carga_mb_aprox,carga_s
+M3_transformers_fp32,2,13,0.182,2.23,2,3,18,2,0,177.15,257.59,13,56.17,32.15,92.44,6175,443,7607,90.5
+gguf_fp16,2,13,0.182,2.04,2,3,18,2,0,193.6,246.86,13,74.67,32.84,80.31,3560,443,3880,108.6
+gguf_q8_0,2,13,0.182,2.12,2,3,18,2,0,144.66,188.87,13,54.28,32.3,57.9,1895,443,2120,78.7
+gguf_q4_k_m,1,13,0.091,2.15,1,3,15,5,0,110.81,152.03,13,38.44,32.0,44.25,1117,443,1949,79.9
+gguf_q4_k_m+ce_int8,1,13,0.091,2.12,1,3,15,5,0,106.63,139.8,13,39.75,23.05,43.51,1117,183,2541,24.4

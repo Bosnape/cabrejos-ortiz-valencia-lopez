@@ -301,15 +301,26 @@ def _cumple_schema(texto: str) -> bool:
 class Sistema:
     """Pipeline completo en CPU.
 
-    decoder: 'hf' (Qwen con transformers, como en M3) o una clave de GGUF_ARCHIVOS
-             ('fp16', 'q8_0', 'q4_k_m') servida con llama.cpp.
-    ce_int8: cuantiza dinámicamente a int8 las capas lineales del cross-encoder.
+    dispositivo: 'cpu' (2 hilos, como un servidor gratuito) o 'cuda' (la T4 de Colab, como M3).
+    decoder:
+      'hf'      Qwen con transformers, como en M3 (float32 en CPU, pesos originales en GPU).
+      'hf_int8' y 'hf_nf4': cuantización con bitsandbytes (8 y 4 bits). Solo en GPU NVIDIA.
+      'fp16', 'q8_0', 'q4_k_m': GGUF servido con llama.cpp. Solo en CPU.
+    ce_int8: cuantiza dinámicamente a int8 las capas lineales del cross-encoder (solo CPU).
     """
 
-    def __init__(self, decoder: str = 'hf', ce_int8: bool = False, hilos: int = 2, raiz: Path = RAIZ):
-        if decoder != 'hf' and decoder not in GGUF_ARCHIVOS:
-            raise ValueError(f"decoder debe ser 'hf' o uno de {list(GGUF_ARCHIVOS)}")
+    def __init__(self, decoder: str = 'hf', ce_int8: bool = False, hilos: int = 2,
+                 dispositivo: str = 'cpu', raiz: Path = RAIZ):
+        if decoder not in ('hf', 'hf_int8', 'hf_nf4') and decoder not in GGUF_ARCHIVOS:
+            raise ValueError(f"decoder debe ser 'hf', 'hf_int8', 'hf_nf4' o uno de {list(GGUF_ARCHIVOS)}")
+        if dispositivo not in ('cpu', 'cuda'):
+            raise ValueError("dispositivo debe ser 'cpu' o 'cuda'")
+        if dispositivo == 'cuda' and (decoder in GGUF_ARCHIVOS or ce_int8):
+            raise ValueError('GGUF y la cuantización dinámica del cross-encoder son solo para CPU')
+        if dispositivo == 'cpu' and decoder in ('hf_int8', 'hf_nf4'):
+            raise ValueError('bitsandbytes necesita una GPU NVIDIA')
         self.decoder, self.ce_int8, self.hilos, self.raiz = decoder, ce_int8, hilos, raiz
+        self.dev = dispositivo
         self.cargado = False
         self.historial: list[Resultado] = []
         # interfaz que espera el harness de M2
@@ -320,7 +331,7 @@ class Sistema:
 
     @property
     def nombre(self) -> str:
-        return f"decoder={self.decoder}" + (' + cross-encoder int8' if self.ce_int8 else '')
+        return f"{self.dev} · decoder={self.decoder}" + (' + cross-encoder int8' if self.ce_int8 else '')
 
     # -- carga (una sola vez, al arrancar) --
     def cargar(self) -> 'Sistema':
@@ -337,7 +348,7 @@ class Sistema:
         self.corpus = cargar_corpus(self.raiz)
         self.textos_ce = (self.corpus['fuente'] + '. ' + self.corpus['texto']).tolist()
 
-        self.embeddings = SentenceTransformer(EMBED_MODEL, device='cpu')
+        self.embeddings = SentenceTransformer(EMBED_MODEL, device=self.dev)
         self.chroma = chromadb.Client()
         try:
             self.chroma.delete_collection('final')
@@ -350,7 +361,7 @@ class Sistema:
 
         self.ce_tok = AutoTokenizer.from_pretrained(MODELO_CE)
         base = AutoModelForSequenceClassification.from_pretrained(MODELO_CE, num_labels=2)
-        ce = PeftModel.from_pretrained(base, RUTA_ADAPTADOR).eval()
+        ce = PeftModel.from_pretrained(base, RUTA_ADAPTADOR).to(self.dev).eval()
         if self.ce_int8:
             ce = torch.ao.quantization.quantize_dynamic(ce.merge_and_unload().eval(), {torch.nn.Linear}, dtype=torch.qint8)
         self.ce = ce
@@ -360,11 +371,20 @@ class Sistema:
         return self
 
     def _cargar_decoder(self) -> None:
-        if self.decoder == 'hf':
-            from transformers import AutoModelForCausalLM, AutoTokenizer
+        if self.decoder.startswith('hf'):
+            from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
             self.tok = AutoTokenizer.from_pretrained(GEN_MODEL)
-            # float32: en CPU bf16 no tiene kernels rápidos y haría la línea base artificialmente lenta
-            self.lm = AutoModelForCausalLM.from_pretrained(GEN_MODEL, torch_dtype=torch.float32).eval()
+            if self.decoder == 'hf':
+                # CPU: float32 (bf16 no tiene kernels rápidos y haría la línea base artificialmente lenta).
+                # GPU: los pesos originales, como en M3.
+                dtype = torch.float32 if self.dev == 'cpu' else 'auto'
+                self.lm = AutoModelForCausalLM.from_pretrained(GEN_MODEL, torch_dtype=dtype).to(self.dev).eval()
+            else:
+                cfg = (BitsAndBytesConfig(load_in_8bit=True) if self.decoder == 'hf_int8' else
+                       BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_quant_type='nf4',
+                                          bnb_4bit_compute_dtype=torch.float16))
+                self.lm = AutoModelForCausalLM.from_pretrained(GEN_MODEL, quantization_config=cfg,
+                                                               device_map={'': 0}).eval()
         else:
             from huggingface_hub import hf_hub_download
             from llama_cpp import Llama
@@ -373,8 +393,8 @@ class Sistema:
                             n_gpu_layers=0, verbose=False, seed=0)
 
     def tamano_decoder_mb(self) -> float:
-        if self.decoder == 'hf':
-            return sum(p.numel() * p.element_size() for p in self.lm.parameters()) / 1e6
+        if self.decoder.startswith('hf'):
+            return self.lm.get_memory_footprint() / 1e6
         return Path(self.ruta_gguf).stat().st_size / 1e6
 
     def tamano_cross_encoder_mb(self) -> float:
@@ -385,10 +405,10 @@ class Sistema:
 
     # -- generación --
     def generar(self, sistema: str, usuario: str, max_tokens: int) -> str:
-        if self.decoder == 'hf':
+        if self.decoder.startswith('hf'):
             chat = [{'role': 'system', 'content': sistema}, {'role': 'user', 'content': usuario}]
             prompt = self.tok.apply_chat_template(chat, tokenize=False, add_generation_prompt=True)
-            entrada = self.tok(prompt, return_tensors='pt')
+            entrada = self.tok(prompt, return_tensors='pt').to(self.dev)
             with torch.no_grad():
                 salida = self.lm.generate(**entrada, max_new_tokens=max_tokens, do_sample=False,
                                           pad_token_id=self.tok.eos_token_id)
@@ -412,7 +432,7 @@ class Sistema:
 
     def rerank(self, consulta: str, candidatos: list[int]) -> list[int]:
         entradas = self.ce_tok([consulta] * len(candidatos), [self.textos_ce[i] for i in candidatos],
-                               truncation='only_second', max_length=512, padding=True, return_tensors='pt')
+                               truncation='only_second', max_length=512, padding=True, return_tensors='pt').to(self.dev)
         with torch.no_grad():
             logits = self.ce(**entradas).logits
         puntajes = torch.softmax(logits, dim=-1)[:, 1].tolist()
@@ -479,5 +499,5 @@ class Sistema:
         if not self.cargado:
             return {'status': 'cargando', 'version': VERSION}
         indice_ok = self.coleccion.count() == len(self.corpus) and len(self.bm25.get_scores(['trabajo'])) == len(self.corpus)
-        return {'status': 'ok' if indice_ok else 'degradado', 'version': VERSION, 'decoder': self.decoder,
+        return {'status': 'ok' if indice_ok else 'degradado', 'version': VERSION, 'dispositivo': self.dev, 'decoder': self.decoder,
                 'cross_encoder_int8': self.ce_int8, 'articulos_indexados': int(self.coleccion.count())}
