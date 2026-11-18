@@ -1,0 +1,21 @@
+# Dependencias de final/app.py (versiones de los notebooks de M3 y de la medición de eficiencia).
+# torch lo trae el entorno (Colab, Space con GPU) o se instala aparte.
+gradio
+fastapi
+uvicorn
+wandb
+sentence-transformers==6.0.1
+transformers==5.16.1
+peft==0.20.0
+accelerate==1.14.0
+huggingface_hub
+chromadb
+rank_bm25
+pydantic
+pandas==3.0.5
+python-dotenv==1.2.3
+# Solo con GPU NVIDIA y DECODER=hf_int8 o hf_nf4 (no recomendado: ver final/eficiencia/eficiencia.md):
+# bitsandbytes
+# Solo con CPU y DECODER=fp16, q8_0 o q4_k_m:
+# --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+# llama-cpp-python==0.3.36

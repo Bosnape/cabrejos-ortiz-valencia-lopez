@@ -9,3 +9,6 @@ data/diccionario_faltantes.csv
 
 *.pdf
 !data/SL2600-2025.pdf
+# generados por final/app.py al correr
+peticiones.jsonl
+wandb/
