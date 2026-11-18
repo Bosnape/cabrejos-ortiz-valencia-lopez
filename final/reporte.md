@@ -200,11 +200,15 @@ A completar cuando esté desplegado:
 
 ## 13. Uso de IA
 
-Buena parte del código parte de los notebooks y laboratorios del curso (harness de las sesiones 5 y 6, RAG de las sesiones
-7 y 8, plantilla de fine-tuning y lab de despliegue de la sesión 15), que se tomaron como base. Para esta entrega final
-usamos Claude (Claude Code, de Anthropic) para escribir el módulo `final/sistema.py` y el notebook de eficiencia, y para
-redactar borradores de `final/eficiencia/eficiencia.md` y de este reporte a partir de los CSV de resultados. Las decisiones las tomó el
-equipo: el umbral de la técnica de eficiencia, qué se mide y en qué entornos, descartar el componente visual y reportar la
-cuantización en GPU como resultado negativo. Pablo ejecutó los notebooks en Colab, y las cifras de este reporte se copian de los CSV generados.
-Dos modelos forman parte del sistema y no cuentan como herramientas de redacción: Qwen2.5-1.5B-Instruct como decoder y
-Claude Haiku como juez en la evaluación.
+Todo el equipo usó asistentes de IA (Claude de Anthropic, ChatGPT de OpenAI, entre otros) para construir el proyecto. Buena
+parte del código parte de los notebooks y laboratorios del curso (el harness de las sesiones 5 y 6, el RAG de las
+sesiones 7 y 8, la plantilla de fine-tuning y el laboratorio de despliegue de la sesión 15), que se tomaron como base. Esa
+base se editó y adaptó a las necesidades del proyecto con el apoyo de los asistentes, que actuaron como programadores:
+escribieron y modificaron código (el sistema final, la app y los notebooks de medición), ayudaron a analizar resultados y
+a redactar la documentación y el reporte. Las decisiones de cada etapa (qué construir, qué probar, cómo evaluar, qué
+umbral aceptar y qué descartar, incluido el componente visual) las tomó el equipo, que dirigió el proyecto, revisó los
+resultados y aprobó los cambios. Los resultados reportados provienen de ejecuciones reales en Google Colab y las cifras de
+este reporte se copian de los archivos CSV generados.
+
+Además, dos modelos forman parte del sistema y no son herramientas de redacción: Qwen2.5-1.5B-Instruct como decoder que
+resume y Claude Haiku como juez en la evaluación.
