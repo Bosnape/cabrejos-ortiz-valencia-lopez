@@ -1,7 +1,7 @@
 # Técnica de eficiencia: cuantizar el decoder
 
-Código: `final/sistema.py` (el sistema) y `final/medir_eficiencia.ipynb` (la medición). Resultados completos en
-`final/resultados/gpu/` y `final/resultados/cpu/`.
+Código: `final/sistema.py` (el sistema) y `final/eficiencia/medir_eficiencia.ipynb` (la medición). Resultados completos en
+`final/eficiencia/resultados/gpu/` y `final/eficiencia/resultados/cpu/`.
 
 ## Qué se cuantizó y por qué
 

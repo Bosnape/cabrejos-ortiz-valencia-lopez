@@ -3,7 +3,7 @@
 Equipo Lawten · SI4006 · Proyecto integrador (Módulos 1 a 5)
 
 > Las secciones marcadas con **[PENDIENTE]** dependen del despliegue o de la información del equipo y se completan al
-> terminar esas partes. Todas las cifras salen de los CSV versionados en `notebooks/` y `final/resultados/`.
+> terminar esas partes. Todas las cifras salen de los CSV versionados en `notebooks/` y `final/eficiencia/resultados/`.
 
 ## 1. El problema y el usuario
 
@@ -75,7 +75,7 @@ en todas las filas.
 
 Notas.
 - El sistema final es el de M3 sin cambios de modelo, porque la técnica de eficiencia no sirvió en GPU. La fila se midió en
-  la sesión de eficiencia (`final/resultados/gpu/`). El 3/13 contra el 2/13 de M3 no es una mejora: en M2-11 el juez dio
+  la sesión de eficiencia (`final/eficiencia/resultados/gpu/`). El 3/13 contra el 2/13 de M3 no es una mejora: en M2-11 el juez dio
   exactamente 4.0, que es el umbral de acierto, y ese caso cambia con el ruido del juez (cerca de 0.1 entre corridas).
 - Otras referencias de M3, medidas igual: RAG ingenuo 1/13, recall 0.09, juez 1.77, 5.3 s. RAG avanzado (C2) 2/13, recall
   0.18, juez 2.23, 6.6 s.
@@ -85,7 +85,7 @@ Notas.
 ## 5. Ablaciones
 
 Cada una quita una pieza y mide con el mismo harness. Fuentes: `notebooks/rag/resultados/avanzado/`,
-`notebooks/rag/resultados/final/` y `final/resultados/`.
+`notebooks/rag/resultados/final/` y `final/eficiencia/resultados/`.
 
 | Pieza que se quita | Con la pieza | Sin la pieza | Lectura |
 |---|---|---|---|
@@ -99,7 +99,7 @@ las dos normas en M2-06 y M2-09: con una regla menos estricta, B, C1, C2 y D emp
 
 ## 6. Análisis de errores
 
-Sistema final en la T4 (`final/resultados/gpu/M3_transformers_detalle.csv`). Falla en 10 de 13 casos. Agrupados por tipo:
+Sistema final en la T4 (`final/eficiencia/resultados/gpu/M3_transformers_detalle.csv`). Falla en 10 de 13 casos. Agrupados por tipo:
 
 | Tipo | Casos | Qué pasó | Pieza que falló | Qué haríamos |
 |---|---|---|---|---|
@@ -148,7 +148,7 @@ Si se retomara, habría que partir de un OCR como línea base y de un eval set d
 
 ## 9. Técnica de eficiencia (resumen)
 
-Detalle y tablas completas en `final/eficiencia.md`.
+Detalle y tablas completas en `final/eficiencia/eficiencia.md`.
 
 - **Qué:** cuantizar Qwen2.5-1.5B, que decide el agente y escribe el resumen y es casi toda la latencia en la T4 (9.3 de
   9.6 s).
@@ -203,7 +203,7 @@ A completar cuando esté desplegado:
 Buena parte del código parte de los notebooks y laboratorios del curso (harness de las sesiones 5 y 6, RAG de las sesiones
 7 y 8, plantilla de fine-tuning y lab de despliegue de la sesión 15), que se tomaron como base. Para esta entrega final
 usamos Claude (Claude Code, de Anthropic) para escribir el módulo `final/sistema.py` y el notebook de eficiencia, y para
-redactar borradores de `final/eficiencia.md` y de este reporte a partir de los CSV de resultados. Las decisiones las tomó el
+redactar borradores de `final/eficiencia/eficiencia.md` y de este reporte a partir de los CSV de resultados. Las decisiones las tomó el
 equipo: el umbral de la técnica de eficiencia, qué se mide y en qué entornos, descartar el componente visual y reportar la
 cuantización en GPU como resultado negativo. Pablo ejecutó los notebooks en Colab, y las cifras de este reporte se copian de los CSV generados.
 Dos modelos forman parte del sistema y no cuentan como herramientas de redacción: Qwen2.5-1.5B-Instruct como decoder y
