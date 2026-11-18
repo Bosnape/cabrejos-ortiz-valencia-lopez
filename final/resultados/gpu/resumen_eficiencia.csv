@@ -1,0 +1,4 @@
+version,aciertos,casos,recall_3_medio,juez_medio,adversariales_acertados,adversariales,agente_correctas_de_20,laborales_sin_buscar,decisiones_invalidas,p50_s,p95_s,n_latencias,agente_s_mediana,recuperacion_s_mediana,decoder_s_mediana,decoder_mb,cross_encoder_mb,rss_carga_mb_aprox,carga_s,vram_pico_mb,modo
+M3_transformers,3,13,0.182,2.42,3,3,18,2,0,9.55,12.34,13,3.16,0.64,6.1,3087,443,551,20.7,8365,gpu
+bnb_int8,1,13,0.182,2.15,1,3,19,1,0,29.08,34.86,13,8.59,0.72,19.57,1777,443,129,12.5,7076,gpu
+bnb_nf4,1,13,0.182,1.88,1,3,9,0,11,9.84,14.32,13,1.48,0.64,7.74,1122,443,43,9.5,6519,gpu
