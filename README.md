@@ -28,9 +28,7 @@ La aplicación se puede usar sin una cuenta de Weights & Biases. Para registrar 
 | Módulo 3 · Búsqueda de artículos y agente | [Reporte en este README](#entrega-m3) · [Notebook del agente](notebooks/rag/agente_herramienta.ipynb) · [Notebook de RAGAS](notebooks/rag/ragas_m3.ipynb) |
 | Módulo 4 · Componente visual | [Decisión de alcance](final/reporte.md#8-por-qué-no-hay-componente-visual) |
 | Módulo 5 · Eficiencia y aplicación | [Medición de eficiencia](final/eficiencia/eficiencia.md) · [Código de la app](final/app.py) |
-| Entrega final | [Reporte integrador](final/reporte.md) · [Diapositivas](final/diapositivas/Lawten_sustentacion.pptx) |
-
-Para editar o presentar las diapositivas en [OpenSlide](https://open-slide.dev/), ejecuta `npm ci` y `npm run dev` desde `final/diapositivas`. El servidor muestra la URL local del visor. Las [fuentes de la presentación](final/diapositivas/slides/lawten/index.tsx) incluyen las notas del expositor.
+| Entrega final | [Reporte integrador](final/reporte.md) |
 
 ---
 
