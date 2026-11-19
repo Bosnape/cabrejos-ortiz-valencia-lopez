@@ -1,3 +1,39 @@
+# Lawten
+
+Lawten ayuda a abogados que empiezan a ejercer en Colombia a decidir qué artículos de derecho laboral individual revisar antes de citarlos. A partir de una consulta escrita, presenta referencias con sus fuentes y un resumen para que el abogado pueda verificarlas.
+
+- **Demo pública** —
+- **Weights & Biases** —
+
+## Cómo correr la aplicación
+
+1. Clona el repositorio. Para usar la configuración elegida para la sustentación, prepara un entorno local con GPU NVIDIA y PyTorch con soporte para CUDA.
+2. Desde la raíz del repositorio, instala las dependencias y arranca la aplicación:
+
+   ```bash
+   python -m pip install -r final/requirements.txt
+   python final/app.py
+   ```
+
+3. Abre [la aplicación](http://localhost:7860). El [endpoint `/health`](http://localhost:7860/health) muestra el estado de carga. Cuando indique `status: ok`, la aplicación está lista para recibir consultas.
+
+La aplicación se puede usar sin una cuenta de Weights & Biases. Para registrar sus métricas allí, configura `WANDB_API_KEY` como secreto y `WANDB_PROJECT` con el nombre del proyecto. El primer arranque descarga los modelos públicos.
+
+## Índice del proyecto
+
+| Entrega | Dónde encontrarla |
+|---|---|
+| Módulo 1 · Ajuste del modelo | [Reporte en este README](#reporte-m1--fine-tuning-con-lora-beto) · [Notebook de entrenamiento](notebooks/fine-tuning/fine_tuning_asistente_legal.ipynb) |
+| Módulo 2 · Evaluación | [Reporte en este README](#entrega-m2) · [Notebook de evaluación](notebooks/evaluation/harness_de_evaluacion.ipynb) |
+| Módulo 3 · Búsqueda de artículos y agente | [Reporte en este README](#entrega-m3) · [Notebook del agente](notebooks/rag/agente_herramienta.ipynb) · [Notebook de RAGAS](notebooks/rag/ragas_m3.ipynb) |
+| Módulo 4 · Componente visual | [Decisión de alcance](final/reporte.md#8-por-qué-no-hay-componente-visual) |
+| Módulo 5 · Eficiencia y aplicación | [Medición de eficiencia](final/eficiencia/eficiencia.md) · [Código de la app](final/app.py) |
+| Entrega final | [Reporte integrador](final/reporte.md) · [Diapositivas](final/diapositivas/Lawten_sustentacion.pptx) |
+
+Para editar o presentar las diapositivas en [OpenSlide](https://open-slide.dev/), ejecuta `npm ci` y `npm run dev` desde `final/diapositivas`. El servidor muestra la URL local del visor. Las [fuentes de la presentación](final/diapositivas/slides/lawten/index.tsx) incluyen las notas del expositor.
+
+---
+
 # Asistente de Consulta de Derecho Laboral Individual
 
 Asistente de apoyo para abogados junior colombianos: dado un texto de consulta, **identifica qué norma y qué artículo le aplican**. El sistema informa y verifica — nunca recomienda acciones sobre un caso concreto. Una buena respuesta muestra los artículos pertinentes con sus fuentes, los resume fielmente y reconoce cuando la información disponible no resuelve la consulta.

@@ -191,12 +191,12 @@ A completar cuando esté desplegado:
    sistema solo informa y no recomienda acciones, y la decisión es siempre del abogado. Como la válvula del agente no es
    fiable, la mitigación real es humana.
 
-## 12. Quién hizo qué **[PENDIENTE: completar con el equipo]**
+## 12. Quién hizo qué
 
 - Pablo Cabrejos: sistema final integrado (`final/sistema.py`), medición de la técnica de eficiencia (`final/`), reporte.
-- Miguel Ángel Ortiz: **[por completar]**
-- Martín Valencia: **[por completar]**
-- Samuel López: **[por completar]**
+- Miguel Ángel Ortiz: —
+- Martín Valencia: —
+- Samuel López: Portada del README y preparación de las diapositivas de sustentación.
 
 ## 13. Uso de IA
 

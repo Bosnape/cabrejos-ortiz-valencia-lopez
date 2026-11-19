@@ -1,0 +1,20 @@
+{
+  "name": "lawten-sustentacion",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "open-slide dev",
+    "build": "open-slide build",
+    "preview": "open-slide preview"
+  },
+  "dependencies": {
+    "@open-slide/core": "2.3.2",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.5"
+  }
+}
