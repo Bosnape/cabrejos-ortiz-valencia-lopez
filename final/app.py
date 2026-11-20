@@ -1,4 +1,4 @@
-"""App del sistema final: interfaz web, health check, log JSON por petición y métricas en W&B.
+"""App del sistema final: interfaz web, health check, log JSON por petición y métricas en MLflow.
 
 Cómo correrla (desde la raíz del repositorio, con `pip install -r final/requirements.txt`):
 
@@ -8,11 +8,11 @@ Variables de entorno (todas opcionales):
     DISPOSITIVO     cpu | cuda. Por defecto cuda si hay GPU.
     DECODER         hf | hf_int8 | hf_nf4 | fp16 | q8_0 | q4_k_m. Por defecto hf con GPU y q8_0 (GGUF) con CPU.
     PORT            puerto, 7860 por defecto.
-    WANDB_API_KEY   si existe, cada petición se registra en W&B (en un Space va como secreto, nunca en el repositorio).
-    WANDB_PROJECT   proyecto de W&B, "asistente-legal-laboral" por defecto.
+    MLFLOW_TRACKING_URI  si existe, cada petición se registra como métricas en MLflow (p. ej. sqlite:///mlflow.db).
+    MLFLOW_EXPERIMENT    nombre del experimento, "asistente-legal-laboral" por defecto.
     LOG_PETICIONES  ruta del archivo de log, "peticiones.jsonl" por defecto.
 
-Privacidad: el log y W&B guardan métricas de la petición (hora, latencias, componentes, válvula, error). No guardan
+Privacidad: el log y MLflow guardan métricas de la petición (hora, latencias, componentes, válvula, error). No guardan
 el texto de la consulta ni de la respuesta; de la consulta solo se registra su longitud.
 """
 import json
@@ -50,12 +50,13 @@ for h in (logging.FileHandler(os.environ.get('LOG_PETICIONES', 'peticiones.jsonl
     h.setFormatter(logging.Formatter('%(message)s'))
     log.addHandler(h)
 
-# ---- W&B solo si hay clave ----
-wandb = None
-if os.environ.get('WANDB_API_KEY'):
-    import wandb
-    wandb.init(project=os.environ.get('WANDB_PROJECT', 'asistente-legal-laboral'), name=f'app-v{VERSION}-{DISPOSITIVO}',
-               config={'version': VERSION, 'dispositivo': DISPOSITIVO, 'decoder': DECODER})
+# ---- MLflow solo si se indica dónde guardar ----
+mlflow = None
+if os.environ.get('MLFLOW_TRACKING_URI'):
+    import mlflow
+    mlflow.set_experiment(os.environ.get('MLFLOW_EXPERIMENT', 'asistente-legal-laboral'))
+    mlflow.start_run(run_name=f'app-v{VERSION}-{DISPOSITIVO}')
+    mlflow.log_params({'version': VERSION, 'dispositivo': DISPOSITIVO, 'decoder': DECODER})
 
 # ---- el sistema se carga UNA vez, en segundo plano, para que /health responda mientras tanto ----
 SISTEMA: S.Sistema | None = None
@@ -102,10 +103,14 @@ def responder(pregunta: str) -> str:
         'latencia_ms': res.latencias_ms.get('total_ms'), 'latencias_ms': res.latencias_ms, 'error': res.error,
     }
     log.info(json.dumps(registro, ensure_ascii=False))
-    if wandb:
-        wandb.log({'latencia_ms': registro['latencia_ms'], 'valvula': int(res.valvula), 'error': int(res.error is not None),
-                   'peticiones_total': CONTADOR['peticiones'],
-                   **{k: v for k, v in res.latencias_ms.items() if k != 'total_ms'}})
+    if mlflow:
+        try:
+            mlflow.log_metrics({'latencia_ms': registro['latencia_ms'], 'valvula': int(res.valvula),
+                                'error': int(res.error is not None), 'peticiones_total': CONTADOR['peticiones'],
+                                **{k: v for k, v in res.latencias_ms.items() if k != 'total_ms'}},
+                               step=CONTADOR['peticiones'])
+        except Exception:  # la observabilidad nunca debe tumbar la respuesta
+            pass
     return res.respuesta
 
 
@@ -116,7 +121,7 @@ app = FastAPI(title='Asistente de derecho laboral')
 def health():
     """Vivo sin hacer una pregunta real: modelos cargados e índice respondiendo (no genera texto)."""
     base = {'version': VERSION, 'dispositivo': DISPOSITIVO, 'decoder': DECODER, 'uptime_s': int(time.time() - T0),
-            'wandb': 'activo' if wandb else 'inactivo', **CONTADOR}
+            'mlflow': 'activo' if mlflow else 'inactivo', **CONTADOR}
     if ERROR_CARGA:
         return {'status': 'error', 'error_carga': ERROR_CARGA, **base}
     if SISTEMA is None:

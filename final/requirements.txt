@@ -3,7 +3,7 @@
 gradio
 fastapi
 uvicorn
-wandb
+mlflow
 sentence-transformers==6.0.1
 transformers==5.16.1
 peft==0.20.0
