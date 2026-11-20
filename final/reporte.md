@@ -194,8 +194,8 @@ A completar cuando esté desplegado:
 ## 12. Quién hizo qué
 
 - Pablo Cabrejos: sistema final integrado (`final/sistema.py`), medición de la técnica de eficiencia (`final/`), reporte.
-- Miguel Ángel Ortiz: —
-- Martín Valencia: —
+- Miguel Ángel Ortiz: Despliegue público de la app, configuración de W&B y documentación del despliegue.
+- Martín Valencia: Verificación de cifras, reproducibilidad y funcionamiento de la app desplegada, guion de la demo y video de respaldo.
 - Samuel López: Portada del README y preparación de las diapositivas de sustentación.
 
 ## 13. Uso de IA
