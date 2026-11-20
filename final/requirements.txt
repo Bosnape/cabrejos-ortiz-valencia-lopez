@@ -3,7 +3,7 @@
 gradio
 fastapi
 uvicorn
-mlflow==3.18.0
+mlflow
 sentence-transformers==6.0.1
 transformers==5.16.1
 peft==0.20.0
@@ -12,7 +12,8 @@ huggingface_hub
 chromadb
 rank_bm25
 pydantic
-pandas==2.2.3
+pandas==3.0.5
+python-dotenv==1.2.3
 # Solo con GPU NVIDIA y DECODER=hf_int8 o hf_nf4 (no recomendado: ver final/eficiencia/eficiencia.md):
 # bitsandbytes
 # Solo con CPU y DECODER=fp16, q8_0 o q4_k_m:
