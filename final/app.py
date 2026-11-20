@@ -55,7 +55,8 @@ mlflow = None
 if os.environ.get('MLFLOW_TRACKING_URI'):
     import mlflow
     mlflow.set_experiment(os.environ.get('MLFLOW_EXPERIMENT', 'asistente-legal-laboral'))
-    mlflow.start_run(run_name=f'app-v{VERSION}-{DISPOSITIVO}')
+    # El run activo de MLflow es local a cada hilo y Gradio atiende en otros hilos: se escribe siempre por run_id.
+    MLFLOW_RUN_ID = mlflow.start_run(run_name=f'app-v{VERSION}-{DISPOSITIVO}').info.run_id
     mlflow.log_params({'version': VERSION, 'dispositivo': DISPOSITIVO, 'decoder': DECODER})
 
 # ---- el sistema se carga UNA vez, en segundo plano, para que /health responda mientras tanto ----
@@ -105,10 +106,11 @@ def responder(pregunta: str) -> str:
     log.info(json.dumps(registro, ensure_ascii=False))
     if mlflow:
         try:
-            mlflow.log_metrics({'latencia_ms': registro['latencia_ms'], 'valvula': int(res.valvula),
-                                'error': int(res.error is not None), 'peticiones_total': CONTADOR['peticiones'],
-                                **{k: v for k, v in res.latencias_ms.items() if k != 'total_ms'}},
-                               step=CONTADOR['peticiones'])
+            metricas = {'latencia_ms': registro['latencia_ms'], 'valvula': int(res.valvula),
+                        'error': int(res.error is not None), 'peticiones_total': CONTADOR['peticiones'],
+                        **{k: v for k, v in res.latencias_ms.items() if k != 'total_ms'}}
+            mlflow.log_metrics({k: v for k, v in metricas.items() if v is not None},
+                               step=CONTADOR['peticiones'], run_id=MLFLOW_RUN_ID)
         except Exception:  # la observabilidad nunca debe tumbar la respuesta
             pass
     return res.respuesta
