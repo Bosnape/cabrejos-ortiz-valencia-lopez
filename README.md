@@ -1,4 +1,39 @@
-# Asistente de Consulta de Derecho Laboral Individual
+# Lawten
+
+Lawten ayuda a abogados que empiezan a ejercer en Colombia a decidir qué artículos de derecho laboral individual revisar antes de citarlos. A partir de una consulta escrita, presenta referencias con sus fuentes y un resumen para que el abogado pueda verificarlas.
+
+- **Demo pública:** enlace temporal de Colab (`trycloudflare.com`) que cambia con cada sesión; se comparte el día de la sustentación. Cómo levantarla: [`final/despliegue/README.md`](final/despliegue/README.md).
+- **Observabilidad:** panel de MLflow, con otro enlace temporal. Reemplaza a Weights & Biases, que no funcionó de forma estable (ver [reporte, sección 10](final/reporte.md#10-despliegue-y-observabilidad)).
+
+## Cómo correr la aplicación
+
+**En Colab (recomendado).** Abre [`final/despliegue/despliegue_en_colab.ipynb`](final/despliegue/despliegue_en_colab.ipynb), elige una GPU T4 y ejecuta las celdas en orden. Imprime la URL de la demo, su `/health` y el panel de MLflow.
+
+**En local**, desde la raíz del repositorio y con una GPU NVIDIA con PyTorch/CUDA:
+
+```bash
+python -m pip install -r final/requirements.txt
+python final/app.py
+```
+
+Abre [la aplicación](http://localhost:7860). El endpoint [`/health`](http://localhost:7860/health) muestra el estado de carga; con `status: ok` ya recibe consultas. El primer arranque descarga los modelos públicos. Sin GPU funciona con `DECODER=hf`, pero tarda cerca de dos minutos por consulta. Para registrar métricas en MLflow, define `MLFLOW_TRACKING_URI` (por ejemplo `sqlite:///mlflow.db`); sin ella la app corre igual.
+
+**Ver las métricas.** Abre el panel de MLflow (la tercera dirección que imprime el notebook), entra al experimento `asistente-legal-laboral`, abre el run `app-v<versión>-cuda` y revisa la pestaña de métricas: latencia por petición y por componente, válvula, errores y total de peticiones. Hacen falta algunas consultas previas para que aparezcan.
+
+## Índice del proyecto
+
+| Entrega | Dónde encontrarla |
+|---|---|
+| Módulo 1 · Ajuste del modelo | [Reporte en este README](#reporte-m1--fine-tuning-con-lora-beto) · [Notebook de entrenamiento](notebooks/fine-tuning/fine_tuning_asistente_legal.ipynb) |
+| Módulo 2 · Evaluación | [Reporte en este README](#entrega-m2) · [Notebook de evaluación](notebooks/evaluation/harness_de_evaluacion.ipynb) |
+| Módulo 3 · Búsqueda de artículos y agente | [Reporte en este README](#entrega-m3) · [Notebook del agente](notebooks/rag/agente_herramienta.ipynb) · [Notebook de RAGAS](notebooks/rag/ragas_m3.ipynb) |
+| Módulo 4 · Componente visual | [Decisión de alcance](final/reporte.md#8-por-qué-no-hay-componente-visual) |
+| Módulo 5 · Eficiencia y despliegue | [Medición de eficiencia](final/eficiencia/eficiencia.md) · [Despliegue](final/despliegue/README.md) · [Código de la app](final/app.py) |
+| Entrega final | [Reporte integrador](final/reporte.md) |
+
+---
+
+## Asistente de Consulta de Derecho Laboral Individual
 
 Asistente de apoyo para abogados junior colombianos: dado un texto de consulta, **identifica qué norma y qué artículo le aplican**. El sistema informa y verifica — nunca recomienda acciones sobre un caso concreto. Una buena respuesta muestra los artículos pertinentes con sus fuentes, los resume fielmente y reconoce cuando la información disponible no resuelve la consulta.
 
