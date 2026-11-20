@@ -2,8 +2,7 @@
 
 Equipo Lawten · SI4006 · Proyecto integrador (Módulos 1 a 5)
 
-> Las secciones marcadas con **[PENDIENTE]** dependen del despliegue o de la información del equipo y se completan al
-> terminar esas partes. Todas las cifras salen de los CSV versionados en `notebooks/` y `final/eficiencia/resultados/`.
+> Todas las cifras salen de los CSV versionados en `notebooks/` y `final/eficiencia/resultados/`.
 
 ## 1. El problema y el usuario
 
@@ -221,12 +220,12 @@ fuera del repositorio.
    sistema solo informa y no recomienda acciones, y la decisión es siempre del abogado. Como la válvula del agente no es
    fiable, la mitigación real es humana.
 
-## 12. Quién hizo qué **[PENDIENTE: completar con el equipo]**
+## 12. Quién hizo qué
 
 - Pablo Cabrejos: sistema final integrado (`final/sistema.py`), medición de la técnica de eficiencia (`final/`), reporte.
-- Miguel Ángel Ortiz: **[por completar]**
-- Martín Valencia: **[por completar]**
-- Samuel López: **[por completar]**
+- Miguel Ángel Ortiz: despliegue público de la app en Colab, observabilidad con MLflow y documentación del despliegue.
+- Martín Valencia: verificación de cifras, reproducibilidad y funcionamiento de la app desplegada, guion de la demo y video de respaldo.
+- Samuel López: portada del README y diapositivas de la sustentación.
 
 ## 13. Uso de IA
 
