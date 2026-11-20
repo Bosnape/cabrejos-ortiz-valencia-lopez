@@ -164,14 +164,44 @@ Detalle y tablas completas en `final/eficiencia/eficiencia.md`.
 - **Pruebas repetidas sobre la versión eficiente:** válvula (20 consultas) y casos adversariales. La prueba de invarianza
   del Módulo 4 no aplica porque no hay componente visual.
 
-## 10. Despliegue y observabilidad **[PENDIENTE]**
+## 10. Despliegue y observabilidad
 
-A completar cuando esté desplegado:
-- URL de la demo y enlace al proyecto de W&B (también en la portada del README).
-- Cómo se llama el health check.
-- Ejemplo de una línea del log JSON (hora, latencia, componentes usados, si se activó la válvula; sin datos personales).
-- Qué quedó afuera del hardware gratuito, si algo.
-- Enlace o captura del video demo de respaldo.
+El sistema se despliega en una GPU T4 de Google Colab mediante
+[`final/despliegue/despliegue_en_colab.ipynb`](despliegue/despliegue_en_colab.ipynb). Se eligió esta alternativa porque la
+disponibilidad y los créditos de GPU de Hugging Face Spaces no permitieron mantener el sistema completo, y una consulta en
+CPU tarda alrededor de dos minutos. El notebook inicia `final/app.py` y publica con `cloudflared` dos túneles temporales:
+uno para la interfaz de Gradio y otro para el panel de MLflow.
+
+Las URL terminan en `trycloudflare.com`, se imprimen al ejecutar el notebook y cambian con cada sesión. Por esa razón no se
+versiona una dirección que quedaría vencida: para la sustentación se inicia Colab unos minutos antes, se comparten la URL de
+la demo, `URL/health` y la URL del panel de MLflow, y se mantiene abierta la celda de monitoreo. El procedimiento completo,
+incluidas la verificación desde otro dispositivo y la forma de apagar los procesos, está documentado en
+[`final/despliegue/README.md`](despliegue/README.md).
+
+El health check se llama con `GET /health`. No genera texto ni ejecuta una consulta real. Mientras cargan los modelos responde
+`cargando`; cuando el sistema y el índice están disponibles responde `ok`, y también puede informar `degradado` o `error`.
+Incluye la versión, el dispositivo, el decoder, el tiempo activo, el estado de MLflow y los contadores de peticiones,
+activaciones de la válvula y errores. El notebook comprueba este endpoint tanto localmente como a través del túnel público.
+
+Cada petición atendida escribe una línea JSON en `peticiones.jsonl`. Este ejemplo ilustra la estructura y los tipos del
+registro; no corresponde a una medición reportada:
+
+```json
+{"ts":"AAAA-MM-DDTHH:MM:SS","id":"xxxxxxxx","version":"<versión>","dispositivo":"cuda","decoder":"hf","componentes":[],"accion_agente":"<acción>","valvula":false,"n_referencias":0,"longitud_pregunta":0,"latencia_ms":0.0,"latencias_ms":{"total_ms":0.0},"error":null}
+```
+
+El registro no contiene el texto de la consulta ni de la respuesta; de la consulta solo conserva su longitud. MLflow reemplaza
+a W&B porque W&B no funcionó de forma estable en el entorno usado para el despliegue. Para cada petición, MLflow registra la
+latencia total y por componente, la activación de la válvula, la presencia de error y el número acumulado de peticiones. La
+versión, el dispositivo y el decoder quedan como parámetros del run. El panel y la base SQLite viven dentro de la sesión de
+Colab y no contienen texto libre del usuario.
+
+No se retiró ningún componente del sistema textual por falta de memoria: en GPU se despliega M3 sin cuantizar porque las
+variantes cuantizadas no cumplieron el umbral de calidad y latencia. El componente visual del Módulo 4 no fue implementado y,
+por tanto, no es una exclusión causada por el hardware del despliegue. La limitación operativa principal es que Colab y los
+túneles no ofrecen disponibilidad permanente; la sesión puede cerrarse por inactividad o por límite de GPU. Para mitigar ese
+riesgo, la URL se comprueba desde un dispositivo externo antes de la sustentación y se conserva un video corto de respaldo
+fuera del repositorio.
 
 ## 11. Ética
 
@@ -181,9 +211,9 @@ A completar cuando esté desplegado:
    como son las consultas del eval set, donde el sistema falla en 10 de 13. Lo medimos solo en esos 13 casos y no por
    grupos de usuarios; lo demás es sospecha.
 2. **¿Qué pasa con los datos?** El abogado escribe en texto libre y podría incluir nombres, cédulas o empresas de su
-   cliente. El sistema no pide datos personales ni los necesita. El log por petición guarda solo hora, latencia,
-   componentes usados y si se activó la válvula, no el texto de la consulta. **[PENDIENTE: confirmar con el despliegue lo
-   que guarda el log y si W&B recibe el texto]**. Las consultas del eval set son relatos reales del dataset de M1, sin datos
+   cliente. El sistema no pide datos personales ni los necesita. El log por petición guarda la hora, la latencia, los
+   componentes usados, la activación de la válvula y la longitud de la consulta, pero no su texto ni la respuesta. MLflow
+   recibe únicamente esas métricas operativas. Las consultas del eval set son relatos reales del dataset de M1, sin datos
    de contacto.
 3. **¿Qué daño haría un error?** El peor error es que el abogado confíe en una norma equivocada o, peor, que el sistema
    le diga que su consulta laboral está «fuera del alcance» (lo hizo en M2-02 y M2-07) y el caso pierda tiempo útil, por
