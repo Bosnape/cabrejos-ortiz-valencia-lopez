@@ -18,6 +18,8 @@ python final/app.py
 
 Abre [la aplicación](http://localhost:7860). El endpoint [`/health`](http://localhost:7860/health) muestra el estado de carga; con `status: ok` ya recibe consultas. El primer arranque descarga los modelos públicos. Sin GPU funciona con `DECODER=hf`, pero tarda cerca de dos minutos por consulta. Para registrar métricas en MLflow, define `MLFLOW_TRACKING_URI` (por ejemplo `sqlite:///mlflow.db`); sin ella la app corre igual.
 
+**Claves.** La app no necesita ninguna clave. Solo regenerar las tablas de evaluación la necesita: el juez (Claude Haiku) usa `ANTHROPIC_API_KEY`, en `.env` o en los Secrets de Colab (ver [Entrega M2](#entrega-m2)); sin ella los notebooks de evaluación no corren, pero los CSV con los resultados ya están en el repositorio. Las claves nunca se suben.
+
 **Ver las métricas.** Abre el panel de MLflow (la tercera dirección que imprime el notebook), entra al experimento `asistente-legal-laboral`, abre el run `app-v<versión>-cuda` y revisa la pestaña de métricas: latencia por petición y por componente, válvula, errores y total de peticiones. Hacen falta algunas consultas previas para que aparezcan.
 
 ## Índice del proyecto
