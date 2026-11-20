@@ -1,4 +1,4 @@
-"""App del sistema final: interfaz web, health check, log JSON por petición y métricas en W&B.
+"""App del sistema final: interfaz web, health check, log JSON por petición y métricas en MLflow.
 
 Cómo correrla (desde la raíz del repositorio, con `pip install -r final/requirements.txt`):
 
@@ -8,11 +8,11 @@ Variables de entorno (todas opcionales):
     DISPOSITIVO     cpu | cuda. Por defecto cuda si hay GPU.
     DECODER         hf | hf_int8 | hf_nf4 | fp16 | q8_0 | q4_k_m. Por defecto hf con GPU y q8_0 (GGUF) con CPU.
     PORT            puerto, 7860 por defecto.
-    WANDB_API_KEY   si existe, cada petición se registra en W&B (en un Space va como secreto, nunca en el repositorio).
-    WANDB_PROJECT   proyecto de W&B, "asistente-legal-laboral" por defecto.
+    MLFLOW_TRACKING_URI     si existe, cada petición se registra en ese servidor de MLflow.
+    MLFLOW_EXPERIMENT_NAME experimento de MLflow, "asistente-legal-laboral" por defecto.
     LOG_PETICIONES  ruta del archivo de log, "peticiones.jsonl" por defecto.
 
-Privacidad: el log y W&B guardan métricas de la petición (hora, latencias, componentes, válvula, error). No guardan
+Privacidad: el log y MLflow guardan métricas de la petición (hora, latencias, componentes, válvula, error). No guardan
 el texto de la consulta ni de la respuesta; de la consulta solo se registra su longitud.
 """
 import json
@@ -50,18 +50,68 @@ for h in (logging.FileHandler(os.environ.get('LOG_PETICIONES', 'peticiones.jsonl
     h.setFormatter(logging.Formatter('%(message)s'))
     log.addHandler(h)
 
-# ---- W&B solo si hay clave ----
-wandb = None
-if os.environ.get('WANDB_API_KEY'):
-    import wandb
-    wandb.init(project=os.environ.get('WANDB_PROJECT', 'asistente-legal-laboral'), name=f'app-v{VERSION}-{DISPOSITIVO}',
-               config={'version': VERSION, 'dispositivo': DISPOSITIVO, 'decoder': DECODER})
+# ---- MLflow solo si se configuró un servidor; sus fallos nunca detienen la app ----
+MLFLOW_TRACKING_URI = os.environ.get('MLFLOW_TRACKING_URI')
+MLFLOW_EXPERIMENT_NAME = os.environ.get('MLFLOW_EXPERIMENT_NAME', 'asistente-legal-laboral')
+mlflow = None
+ERROR_MLFLOW: str | None = None
+
+
+def _activar_mlflow() -> bool:
+    global mlflow, ERROR_MLFLOW
+    if not MLFLOW_TRACKING_URI:
+        return False
+    try:
+        import mlflow as cliente_mlflow
+        cliente_mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+        cliente_mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
+        mlflow = cliente_mlflow
+        ERROR_MLFLOW = None
+        return True
+    except Exception as exc:
+        mlflow = None
+        ERROR_MLFLOW = type(exc).__name__
+        return False
+
+
+_activar_mlflow()
 
 # ---- el sistema se carga UNA vez, en segundo plano, para que /health responda mientras tanto ----
 SISTEMA: S.Sistema | None = None
 ERROR_CARGA: str | None = None
 CANDADO = threading.Lock()          # un solo modelo atiende una petición a la vez
 CONTADOR = {'peticiones': 0, 'valvula': 0, 'errores': 0}
+
+
+def _registrar_mlflow(registro: dict) -> None:
+    """Crea una ejecución por petición sin guardar la consulta ni la respuesta."""
+    global ERROR_MLFLOW
+    if not MLFLOW_TRACKING_URI:
+        return
+    if mlflow is None and not _activar_mlflow():
+        return
+    try:
+        metricas = {
+            'latencia_total_ms': float(registro['latencia_ms'] or 0),
+            'valvula': int(registro['valvula']),
+            'error': int(registro['error'] is not None),
+            'peticiones_total': CONTADOR['peticiones'],
+            'n_referencias': registro['n_referencias'],
+            'longitud_pregunta': registro['longitud_pregunta'],
+            **{k: float(v) for k, v in registro['latencias_ms'].items() if k != 'total_ms'},
+        }
+        with mlflow.start_run(run_name=f"peticion-{registro['id']}"):
+            mlflow.set_tags({
+                'tipo': 'peticion', 'request_id': registro['id'], 'version': VERSION,
+                'dispositivo': DISPOSITIVO, 'decoder': DECODER,
+                'accion_agente': registro['accion_agente'],
+                'componentes': ','.join(registro['componentes']),
+            })
+            mlflow.log_metrics(metricas)
+        ERROR_MLFLOW = None
+    except Exception as exc:
+        ERROR_MLFLOW = type(exc).__name__
+        log.warning(json.dumps({'evento': 'error_mlflow', 'tipo': ERROR_MLFLOW}, ensure_ascii=False))
 
 
 def _cargar() -> None:
@@ -102,10 +152,7 @@ def responder(pregunta: str) -> str:
         'latencia_ms': res.latencias_ms.get('total_ms'), 'latencias_ms': res.latencias_ms, 'error': res.error,
     }
     log.info(json.dumps(registro, ensure_ascii=False))
-    if wandb:
-        wandb.log({'latencia_ms': registro['latencia_ms'], 'valvula': int(res.valvula), 'error': int(res.error is not None),
-                   'peticiones_total': CONTADOR['peticiones'],
-                   **{k: v for k, v in res.latencias_ms.items() if k != 'total_ms'}})
+    _registrar_mlflow(registro)
     return res.respuesta
 
 
@@ -116,7 +163,7 @@ app = FastAPI(title='Asistente de derecho laboral')
 def health():
     """Vivo sin hacer una pregunta real: modelos cargados e índice respondiendo (no genera texto)."""
     base = {'version': VERSION, 'dispositivo': DISPOSITIVO, 'decoder': DECODER, 'uptime_s': int(time.time() - T0),
-            'wandb': 'activo' if wandb else 'inactivo', **CONTADOR}
+            'mlflow': 'activo' if mlflow else 'inactivo', 'error_mlflow': ERROR_MLFLOW, **CONTADOR}
     if ERROR_CARGA:
         return {'status': 'error', 'error_carga': ERROR_CARGA, **base}
     if SISTEMA is None:
