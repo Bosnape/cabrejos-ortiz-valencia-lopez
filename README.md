@@ -31,7 +31,7 @@ Abre [la aplicación](http://localhost:7860). El endpoint [`/health`](http://loc
 | Módulo 3 · Búsqueda de artículos y agente | [Reporte en este README](#entrega-m3) · [Notebook del agente](notebooks/rag/agente_herramienta.ipynb) · [Notebook de RAGAS](notebooks/rag/ragas_m3.ipynb) |
 | Módulo 4 · Componente visual | [Decisión de alcance](final/reporte.md#8-por-qué-no-hay-componente-visual) |
 | Módulo 5 · Eficiencia y despliegue | [Medición de eficiencia](final/eficiencia/eficiencia.md) · [Despliegue](final/despliegue/README.md) · [Código de la app](final/app.py) |
-| Entrega final | [Reporte integrador](final/reporte.md) |
+| Entrega final | [Reporte integrador](final/reporte.md) · [Diapositivas de la sustentación](final/diapositivas/Lawten_sustentacion.pptx) |
 
 ---
 

@@ -3,6 +3,8 @@
 Equipo Lawten · SI4006 · Proyecto integrador (Módulos 1 a 5)
 
 > Todas las cifras salen de los CSV versionados en `notebooks/` y `final/eficiencia/resultados/`.
+>
+> Diapositivas de la sustentación: [`final/diapositivas/Lawten_sustentacion.pptx`](diapositivas/Lawten_sustentacion.pptx).
 
 ## 1. El problema y el usuario
 
